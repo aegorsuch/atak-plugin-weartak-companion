@@ -818,8 +818,9 @@ _________________________________________________________________
 REPOSITORIES
 
 The TAK Forge repository is canonical; GitHub is secondary.
-The canonical `develop` pipeline can publish signed CIV builds to a stable
-GitHub release. See
+The canonical protected `develop` push pipeline publishes verified signed CIV
+builds only to the fixed-tag rolling release in personal GitHub repository
+`aegorsuch/atak-plugin-weartak-companion`; company publishing is disabled. See
 [docs/github-release-publishing.md](docs/github-release-publishing.md) for the
 protected-token setup and publication behavior.
 
