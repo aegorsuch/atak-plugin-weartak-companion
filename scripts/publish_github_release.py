@@ -23,8 +23,7 @@ from typing import Any
 EXPECTED_PROJECT = "aegorsuch/atak-plugin-weartak-companion"
 EXPECTED_SERVER = "git.tak.gov"
 EXPECTED_BRANCH = "develop"
-EXPECTED_GITHUB_REPOSITORY = "Ascent-Integrated-Tech/atak-plugin-weartak-companion"
-EXPECTED_PERSONAL_GITHUB_REPOSITORY = "aegorsuch/atak-plugin-weartak-companion"
+EXPECTED_GITHUB_REPOSITORY = "aegorsuch/atak-plugin-weartak-companion"
 RELEASE_TAG = "tak-gov-ci-cd-pipeline"
 RELEASE_TITLE = "TAK.gov CI/CD Pipeline Release"
 ASSET_PREFIX = "WearTAK-ATAK-Plugin-civ-release-pipeline-"
@@ -142,7 +141,7 @@ class GitHubClient(ApiClient):
             )
 
     def sync_personal_develop(self, source_sha: str, project_dir: Path) -> None:
-        if self.repository != EXPECTED_PERSONAL_GITHUB_REPOSITORY:
+        if self.repository != EXPECTED_GITHUB_REPOSITORY:
             raise PublishError("Automatic source synchronization is personal-mirror only.")
 
         credentials = base64.b64encode(
@@ -152,7 +151,7 @@ class GitHubClient(ApiClient):
             ("credential.helper", ""),
             ("http.extraHeader", ""),
             (
-                f"http.https://github.com/{EXPECTED_PERSONAL_GITHUB_REPOSITORY}.git.extraHeader",
+                f"http.https://github.com/{EXPECTED_GITHUB_REPOSITORY}.git.extraHeader",
                 f"Authorization: Basic {credentials}",
             ),
             ("http.followRedirects", "false"),
@@ -234,7 +233,7 @@ class GitHubClient(ApiClient):
             raise PublishError("Personal develop must already point to a verified commit.")
 
         if remote_sha != source_sha:
-            repository_url = f"https://github.com/{EXPECTED_PERSONAL_GITHUB_REPOSITORY}.git"
+            repository_url = f"https://github.com/{EXPECTED_GITHUB_REPOSITORY}.git"
             git(
                 "fetch",
                 "--no-tags",
@@ -403,12 +402,9 @@ class GitLabClient(ApiClient):
         return branch
 
 
-def require_environment(env: dict[str, str], *, personal: bool = False) -> dict[str, str]:
-    token_name = (
-        "GITHUB_PERSONAL_RELEASE_TOKEN" if personal else "GITHUB_RELEASE_TOKEN"
-    )
+def require_environment(env: dict[str, str]) -> dict[str, str]:
     required = (
-        token_name,
+        "GITHUB_PERSONAL_RELEASE_TOKEN",
         "GITHUB_REPOSITORY",
         "CI_SERVER_HOST",
         "CI_PROJECT_PATH",
@@ -430,20 +426,11 @@ def require_environment(env: dict[str, str], *, personal: bool = False) -> dict[
         "CI_PROJECT_PATH": EXPECTED_PROJECT,
         "CI_COMMIT_BRANCH": EXPECTED_BRANCH,
         "CI_PIPELINE_SOURCE": "push",
-        "GITHUB_REPOSITORY": (
-            EXPECTED_PERSONAL_GITHUB_REPOSITORY
-            if personal
-            else EXPECTED_GITHUB_REPOSITORY
-        ),
+        "GITHUB_REPOSITORY": EXPECTED_GITHUB_REPOSITORY,
     }
     for name, value in expected.items():
         if env[name] != value:
             raise PublishError(f"Refusing publication from unexpected {name}")
-    if personal and env.get("GITHUB_PERSONAL_REPOSITORY") != EXPECTED_PERSONAL_GITHUB_REPOSITORY:
-        raise PublishError(
-            "Personal publishing requires GITHUB_PERSONAL_REPOSITORY="
-            + EXPECTED_PERSONAL_GITHUB_REPOSITORY
-        )
     if env.get("CI_COMMIT_REF_PROTECTED") != "true":
         raise PublishError("Refusing publication from an unprotected branch")
     if not re.fullmatch(r"[0-9]+", env["CI_PIPELINE_ID"]):
@@ -453,18 +440,8 @@ def require_environment(env: dict[str, str], *, personal: bool = False) -> dict[
     return env
 
 
-def release_destination(
-    env: dict[str, str], *, personal: bool = False
-) -> tuple[str, str]:
-    repository = (
-        EXPECTED_PERSONAL_GITHUB_REPOSITORY
-        if personal
-        else EXPECTED_GITHUB_REPOSITORY
-    )
-    token_name = (
-        "GITHUB_PERSONAL_RELEASE_TOKEN" if personal else "GITHUB_RELEASE_TOKEN"
-    )
-    return repository, env[token_name]
+def release_destination(env: dict[str, str]) -> tuple[str, str]:
+    return EXPECTED_GITHUB_REPOSITORY, env["GITHUB_PERSONAL_RELEASE_TOKEN"]
 
 
 def select_signed_apk(project_dir: Path) -> Path:
@@ -651,12 +628,9 @@ def publish(
     env: dict[str, str],
     gitlab: GitLabClient,
     github: GitHubClient,
-    *,
-    verify_personal_mirror: bool = False,
 ) -> str:
     verify_source_pipeline(gitlab, env)
-    if verify_personal_mirror:
-        github.require_branch_sha(EXPECTED_BRANCH, env["CI_COMMIT_SHA"])
+    github.require_branch_sha(EXPECTED_BRANCH, env["CI_COMMIT_SHA"])
     github.require_existing_tag()
     release = github.get_release()
     previous_release_owned = (
@@ -767,23 +741,20 @@ def main() -> int:
         parser.add_argument(
             "--personal",
             action="store_true",
-            help="publish to the allowlisted personal GitHub mirror",
+            help="compatibility flag; publication is always personal-only",
         )
-        args = parser.parse_args()
-        env = require_environment(dict(os.environ), personal=args.personal)
+        parser.parse_args()
+        env = require_environment(dict(os.environ))
         gitlab = GitLabClient(
             env["CI_API_V4_URL"], env["CI_PROJECT_ID"], env["CI_JOB_TOKEN"]
         )
-        repository, token = release_destination(env, personal=args.personal)
+        repository, token = release_destination(env)
         github = GitHubClient(repository, token)
-        if args.personal:
-            verify_source_pipeline(gitlab, env)
-            github.sync_personal_develop(
-                env["CI_COMMIT_SHA"], Path(env["CI_PROJECT_DIR"])
-            )
-        asset_name = publish(
-            env, gitlab, github, verify_personal_mirror=args.personal
+        verify_source_pipeline(gitlab, env)
+        github.sync_personal_develop(
+            env["CI_COMMIT_SHA"], Path(env["CI_PROJECT_DIR"])
         )
+        asset_name = publish(env, gitlab, github)
         print(f"Published stable rolling GitHub release asset: {repository}:{asset_name}")
         return 0
     except PublishError as error:
