@@ -1,12 +1,6 @@
-Weartak ATAK Companion Plugin
+# WearTAK ATAK Companion Plugin
 
-PROJECT SUMMARY
-
-Unlimited Rights are granted to the TAK Product Center. For questions or
-project coordination, contact Alex Gorsuch on chat.tak.gov or Signal.
-The TAK Forge repository is canonical; GitHub is secondary.
-
-PLUGIN SUMMARY
+## Purpose and Capabilities
 
 WearTAK is an ATAK companion plugin that connects ATAK with supported
 smartwatches. It relays Cursor-on-Target (CoT) data over Bluetooth Low
@@ -25,6 +19,92 @@ stale handling, revision-gated deletion and capacity limits are unchanged.
 Invalid-source-lifetime user warnings are limited to once per UID per minute
 using a bounded 512-entry diagnostic cache. Recovery, removal or relay stop
 clears the corresponding warning state.
+
+## Status
+
+Build configuration targets ATAK 5.6.0. Historical validation results and
+integration limitations are retained under Developer Notes; they do not
+establish current release readiness, ATAK 5.8 compatibility, or paired-device
+acceptance. Hardware acceptance remains pending where explicitly noted below.
+No release date or distribution approval is documented here.
+
+## Point of Contacts
+
+For questions or project coordination, contact Alex Gorsuch on chat.tak.gov
+or Signal.
+
+## Ports Required
+
+Watch transports use Bluetooth Low Energy or Garmin Connect Mobile's Connect IQ
+relay. No plugin-specific TCP/UDP port requirement is documented in this
+repository. ATAK server, multicast, and companion-app network requirements depend
+on deployment configuration and must be verified separately; no fixed port list
+is established here.
+
+## Equipment Required
+
+- Android phone/tablet running the matching ATAK host; current build configuration
+  targets ATAK 5.6.0 and Android API 23 or later.
+- Compatible WearTAK watch and Bluetooth for watch transport. Grant the ATAK host
+  the Bluetooth/location permissions required by its Android version.
+- Samsung Wearable mode: existing system bond established through Galaxy Wearable
+  and a running WearTAK A11A BLE service.
+- Garmin mode: Garmin Connect Mobile, paired Garmin watch, WearTAK-Garmin installed,
+  and Settings > Network Preferences > ATAK Relay enabled.
+- Multiwatch Gateway: Gateway v1-capable WearOS WearTAK firmware with
+  **Use WearTAK Companion** enabled on each admitted watch.
+
+Build equipment and SDK requirements appear under Compilation.
+
+## Equipment Supported
+
+Documented routes cover Samsung/Wear OS BLE watches and the optional Garmin
+Connect IQ relay. Multiwatch Gateway is BLE-only, admits at most nine watches,
+and does not guarantee nine simultaneous connections on every phone. Garmin
+Configure Single Watch is unsupported. Exact tested phone/watch model and OS
+matrices are not documented; protocol support is not hardware certification.
+Feature-specific firmware requirements and acceptance limitations follow under
+Developer Notes.
+
+## Compilation
+
+Plugin version 5.6.0 targets ATAK 5.6.0 (plugin-api com.atakmap.app@5.6.0.CIV for
+the CIV variant). Use JDK 17 to run Gradle 8.14.3 with Android Gradle Plugin
+8.13.2, Android SDK platform 36, compile/target SDK 36, and minimum SDK 23.
+Java source and bytecode compatibility remain Java 8.
+
+TPP should configure its authenticated takrepo.url/user/password in
+local.properties or Gradle properties. The repository resolves takdev 3.+;
+an offline/local takdev.plugin JAR must be paired with the ATAK 5.6 SDK.
+This plugin has no native sources, so no NDK installation is required.
+ATAK-provided core AndroidX libraries remain excluded from implementation;
+dependency overrides retain core 1.17.0 except core-viewtree,
+lifecycle 2.10.0, and fragment 1.8.9.
+
+Run gradlew.bat :app:testCivDebugUnitTest :app:assembleCivDebug, then
+gradlew.bat :app:lintCivRelease :app:assembleCivRelease for release validation.
+An archive is source only, not a verified APK or TPP-signed package.
+ATAK 5.6 release compatibility and phone behavior require the matching
+SDK/repository and device testing.
+
+Production CIV debug resource-link/Java compilation and JVM reconciliation tests
+are described below. These local checks do not establish device compatibility
+or release packaging/signing.
+
+## Developer Notes
+
+### Repositories
+
+The TAK Forge repository is canonical; GitHub is secondary.
+The canonical `develop` pipeline can publish signed CIV builds to a stable
+GitHub release. See
+[docs/github-release-publishing.md](docs/github-release-publishing.md) for the
+protected-token setup and publication behavior.
+
+The pipeline description above reflects the checked-in `develop`-gated CI rules,
+not a claim that the current default `main` branch triggers publishing.
+Historical integration notes below retain their original branch, version, test
+counts, and behavior statements; later feature notes may supersede them.
 
 ### Phone-owned position actions and Garmin field relay
 
@@ -166,7 +246,7 @@ Traditional BLE handles WearTAK's opt-in location diagnostics as version 1, sess
 
 The phone checks location permissions and provider state explicitly using ATAK's host context, not the plugin resource context's nullable application context. When allowed, it registers GNSS status/raw-measurement observers and a passive location listener; the passive provider does not initiate fixes or alter ATAK's location source. Snapshots contain only fix age, accuracy, provider, optional motion accuracy, and aggregate satellite/CN0/AGC measurements. Coordinates, callsigns, device IDs, and satellite identifiers are excluded. Diagnostics use a small conflated best-effort queue and are dropped while operational BLE writes are active.
 
-TRADITIONAL BLE AUTOMATIC RECONNECT
+### Traditional BLE automatic reconnect
 
 Issue #16: a watch restarting its companion GATT service can report Services
 Changed before the first notification subscription completes. Traditional BLE
@@ -374,7 +454,7 @@ stopping the transport; stopped/generation-fenced probe and retry callbacks cann
 reconnect after switching to Samsung or Garmin. The three-choice connection-mode
 dialog uses ATAK's activity context so it has a valid host window token.
 
-LEGACY BLE IDENTITY METADATA
+### Legacy BLE identity metadata
 
 Legacy JSON PLI intentionally continues to represent the phone/EUD: its UID,
 plugin callsign and ATAK location are unchanged. Its group comes from ATAK's
@@ -384,7 +464,7 @@ brand, version, device description and OS helpers, respecting the host's
 `dispatchTAKVersionNumber` preference; unavailable attributes are omitted.
 Raw Gateway watch CoT is not rewritten.
 
-WATCH PPE / PHYSIO ON PHONE SELF PLI (SELF_STATUS v1)
+### Watch PPE / physio on phone self PLI (SELF_STATUS v1)
 
 While a bonded watch is connected, it may contribute its saved PPE level and fresh,
 opted-in physiological samples to the phone's own PLI. The Companion advertises support with
@@ -443,7 +523,7 @@ observations; old peers start without them. Partial deltas do not unlock setting
 sends. These observations neither write phone identity nor trigger settings
 feedback to the watch. Phone-managed settings use only the phone's ATAK profile.
 
-PAIRING PREFERENCE STORAGE
+### Pairing preference storage
 
 Pairing addresses, watch UID/callsign, and preferred-device display metadata use
 ATAK host-owned preferences, just like connection mode/pause and reconnect state.
@@ -566,7 +646,7 @@ bond or disconnect Galaxy Wearable's own connection. The paused choice persists
 through plugin restart and mode changes until Connect is pressed. Settings remains
 available when connected. Detailed connection errors remain in ATAK logs.
 
-MULTIWATCH GATEWAY (NINE-WATCH BLE)
+### Multiwatch Gateway (nine-watch BLE)
 
 Choose **Multiwatch Gateway** to scan for and manually connect up to **nine**
 WearTAK watches. The limit is a software admission cap, not a promise that every
@@ -655,7 +735,7 @@ preference tests), zero failures. `:app:compileCivDebugJavaWithJavac` and
 and `-Ptak.sdk.main.jar=C:\Projects\ATAK-CIV-5.5.1.8-SDK\main.jar`.
 This does not claim ATAK 5.8 SDK/API, install, or hardware validation.
 
-GARMIN SETUP
+### Garmin setup
 
 Pair the Garmin watch in Garmin Connect Mobile and install WearTAK-Garmin.
 On the watch, select Settings > Network Preferences and enable ATAK Relay.
@@ -682,7 +762,7 @@ Validation on 2026-10-12 passed all 170 offline `testCivDebugUnitTest` tests and
 the Civ release Java/resource checks with the local ATAK 5.5.1.8 SDK and SDK 36.
 These results do not establish ATAK 5.8 SDK or paired-watch behavior.
 
-GROUP CHAT (WEARTAK-118)
+### Group chat (WEARTAK-118)
 
 Incoming remote ATAK chat is forwarded with the normalized conversation UID/title,
 an explicit `isGroup` flag, and `participantUids` from ATAK's chat bundle. Local direct
@@ -764,7 +844,7 @@ are also observed, since successfully imported events bypass fallback CoT listen
 Duplicate notifications of the same CoT are suppressed. A successful BLE queue
 operation is not a watch delivery acknowledgement.
 
-SETTINGS AND P12 PROVISIONING (WEARTAK-90)
+### Settings and P12 provisioning (WEARTAK-90)
 
 This section applies to Bond Single Watch/Configure Single Watch, not Gateway.
 An independent watch profile can be provisioned with Configure Single Watch
@@ -793,77 +873,7 @@ retaining saved certificates and current reporting settings. Unpairing also
 releases management, but restores the pre-management reporting settings.
 
 
-_________________________________________________________________
-PURPOSE AND CAPABILITIES
-
-(General Description)
-
-
-_________________________________________________________________
-STATUS
-
-(In Progress?  Expected release?  Released?  To Who?  When?)
-
-_________________________________________________________________
-RIGHTS
-
-Unlimited Rights granted to TAK Product Center.
-
-_________________________________________________________________
-POINT OF CONTACT
-
-Alex Gorsuch on chat.tak.gov or Signal.
-
-_________________________________________________________________
-REPOSITORIES
-
-The TAK Forge repository is canonical; GitHub is secondary.
-The canonical `develop` pipeline can publish signed CIV builds to a stable
-GitHub release. See
-[docs/github-release-publishing.md](docs/github-release-publishing.md) for the
-protected-token setup and publication behavior.
-
-_________________________________________________________________
-PORTS REQUIRED
-
-(This is important for ATO, networking, and other security concerns)
-
-_________________________________________________________________
-EQUIPMENT REQUIRED
-
-_________________________________________________________________
-EQUIPMENT SUPPORTED
-
-_________________________________________________________________
-COMPILATION
-
-Plugin version 5.6.0 targets ATAK 5.6.0 (plugin-api com.atakmap.app@5.6.0.CIV for
-the CIV variant). Use JDK 17 to run Gradle 8.14.3 with Android Gradle Plugin
-8.13.2, Android SDK platform 36, compile/target SDK 36, and minimum SDK 23.
-Java source and bytecode compatibility remain Java 8.
-
-TPP should configure its authenticated takrepo.url/user/password in
-local.properties or Gradle properties. The repository resolves takdev 3.+;
-an offline/local takdev.plugin JAR must be paired with the ATAK 5.6 SDK.
-This plugin has no native sources, so no NDK installation is required.
-ATAK-provided core AndroidX libraries remain excluded from implementation;
-dependency overrides retain core 1.17.0 except core-viewtree,
-lifecycle 2.10.0, and fragment 1.8.9.
-
-Run gradlew.bat :app:testCivDebugUnitTest :app:assembleCivDebug, then
-gradlew.bat :app:lintCivRelease :app:assembleCivRelease for release validation.
-An archive is source only, not a verified APK or TPP-signed package.
-ATAK 5.6 release compatibility and phone behavior require the matching
-SDK/repository and device testing.
-
-Production CIV debug resource-link/Java compilation and JVM reconciliation tests
-are described below. These local checks do not establish device compatibility
-or release packaging/signing.
-
-_________________________________________________________________
-DEVELOPER NOTES
-
-THREE-MODE SELECTOR INTEGRATION
+### Three-mode selector integration
 
 The connection-mode button offers three real, mutually exclusive routes:
 - Use Samsung Wearable Bond: explicit opt-in to automatic discovery,
@@ -1111,7 +1121,7 @@ from both Garmin and phone, rejection of missing/self targets and stale replies,
 disconnect/mode changes without replay, and unchanged Samsung/Traditional BLE
 and local alert/marker lifetimes.
 
-SAMSUNG TRANSPORT DETAILS (SELECTOR-OWNED)
+### Samsung transport details (selector-owned)
 
 Samsung Wearable mode is a persisted explicit opt-in, not the new-install default.
 Enable Bluetooth, grant Nearby Devices permissions to the
@@ -1242,7 +1252,7 @@ method) and per-vertex `type` (`b-m-p-w` checkpoint, `b-m-p-c` control; missing
 means control), without filtering vertices. These support standalone watch
 guidance; bonded progression still comes only from native ATAK.
 
-Paired BLE Bloodhound synchronization (WEARTAK-78)
+### Paired BLE Bloodhound synchronization (WEARTAK-78)
 
 While connected to a bonded WearTAK watch, starting native ATAK Bloodhound
 shares the same CoT target UID with the watch. A watch start selects native
@@ -1421,7 +1431,7 @@ checks, not claims of device validation. With a third TAK/network peer displayin
 the same point, delete on either paired device and verify that third peer retains
 its copy and receives no deletion packet.
 
-CHAT ECHO SUPPRESSION (WEARTAK-158)
+### Chat echo suppression (WEARTAK-158)
 
 In single-watch purpose (Traditional BLE, Samsung Wearable, or Garmin Connect IQ),
 the plugin records the exact CoT identity of chats sent through the watch's
@@ -1456,7 +1466,7 @@ real ATAK servers, plugin lifecycle transitions under live traffic, and BLE/Garm
 hardware delivery still require paired-device acceptance. The simulator broadcast
 and observer are debug-only; the production filter is included in release builds.
 
-## WEARTAK-158 / 160 / 161 release candidate
+### WEARTAK-158 / 160 / 161 release candidate
 
 This candidate combines selective watch-chat echo suppression, remote TAK user
 map relay, and acknowledged release of phone-managed watch settings on intentional
@@ -1465,3 +1475,11 @@ non-atomic listener replacement window. Emulator-only debug checks cover chat
 listener lifecycle, synthetic remote-user snapshots and updates, and release
 state-machine acknowledgements; they do not replace paired-watch interoperability
 testing. Unlock requires watch firmware that supports `release_phone_management`.
+
+## License
+
+Unlimited Rights are granted to the TAK Product Center.
+
+No standalone license file is present in this repository. This section preserves
+the existing rights statement; it does not introduce a new license or relicense
+third-party components.
