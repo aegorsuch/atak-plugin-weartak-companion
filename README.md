@@ -20,6 +20,29 @@ Invalid-source-lifetime user warnings are limited to once per UID per minute
 using a bounded 512-entry diagnostic cache. Recovery, removal or relay stop
 clears the corresponding warning state.
 
+## Connect and configure a watch
+
+Open the Companion and tap **Connect watch**. Choose the purpose first.
+
+| Purpose | Use it for |
+| --- | --- |
+| **Bond single watch** | Relay TAK traffic between ATAK and one watch. |
+| **Configure single watch** | Set up one Wear OS watch for direct use, including importing a TAK server from ATAK. |
+| **Multiwatch Gateway** | Admit multiple supported Wear OS watches over BLE. |
+
+The connection screen offers BLE, Samsung Wearable, or Garmin Connect where
+supported. BLE scan results stay reachable in the scrollable connection screen.
+When connected, the Companion shows the watch callsign and model when reported,
+along with the transport. **Watch Details** shows software, installed plugins and
+capabilities reported by compatible watches. A watch that doesn't report
+capabilities can still use its supported Companion features.
+
+Open **Configure Watch → Saved servers and settings → Refresh from Watch** to
+read the current watch settings. **Import from ATAK** and **Manual setup** are
+separate actions. **Voice channels** is available when the current watch reports
+a ready receiver. See [server import](docs/atak-server-import.md) and
+[voice onboarding](docs/companion-capabilities-voice.md).
+
 ## Status
 
 Build configuration targets ATAK 5.6.0. Historical validation results and

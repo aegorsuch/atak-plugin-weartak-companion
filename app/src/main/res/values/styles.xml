@@ -123,4 +123,52 @@
     </style>
 
 
+    <style name="CompanionAction" parent="@android:style/Widget.Button">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:background">@drawable/btn_gray</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+    </style>
+    <style name="CompanionPrimaryAction" parent="@style/CompanionAction">
+        <item name="android:textStyle">bold</item>
+        <item name="android:background">@drawable/bg_companion_primary</item>
+    </style>
+    <style name="CompanionBackAction" parent="@style/CompanionAction">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:background">?android:attr/selectableItemBackground</item>
+    </style>
+    <style name="CompanionHeading">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:paddingBottom">4dp</item>
+    </style>
+    <style name="CompanionSectionHeading" parent="@style/CompanionHeading">
+        <item name="android:textSize">15sp</item>
+        <item name="android:paddingTop">12dp</item>
+    </style>
+    <style name="CompanionSubtitle" parent="@style/CompanionHeading">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">normal</item>
+        <item name="android:textColor">#C4C9D1</item>
+        <item name="android:paddingTop">4dp</item>
+    </style>
+    <style name="CompanionPurposeChoice" parent="@android:style/Widget.CompoundButton.RadioButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">4dp</item>
+    </style>
 </resources>

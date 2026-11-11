@@ -36,12 +36,21 @@ final class SettingsPayloadBuilder {
     static JSONObject build(List<TakServerItem> servers, Integer interval, String callsign,
                             String team, String role, boolean managed,
                             java.util.Map<String, String> units) throws JSONException {
+        return build(servers, interval, callsign, team, role, managed, units, false);
+    }
+
+    static JSONObject build(List<TakServerItem> servers, Integer interval, String callsign,
+                            String team, String role, boolean managed,
+                            java.util.Map<String, String> units, boolean copyIdentityOnce) throws JSONException {
         if (interval != null && interval <= 0) {
             throw new IllegalArgumentException("Reporting interval must be positive.");
         }
-        if (managed && (interval == null || callsign == null || callsign.trim().isEmpty()
+        if ((managed || copyIdentityOnce) && (callsign == null || callsign.trim().isEmpty()
                 || team == null || team.trim().isEmpty() || role == null || role.trim().isEmpty())) {
-            throw new IllegalArgumentException("Phone management requires a reporting interval and phone identity.");
+            throw new IllegalArgumentException("Copying ATAK identity requires callsign, team, and role.");
+        }
+        if (managed && interval == null) {
+            throw new IllegalArgumentException("Phone management requires a reporting interval.");
         }
         JSONArray list = new JSONArray();
         for (int i = 0; i < servers.size(); i++) {
@@ -51,13 +60,17 @@ final class SettingsPayloadBuilder {
                         ? "Server " + (i + 1) : server.name;
                 throw new IllegalArgumentException(name + " is set to P12 auth but has no certificate selected.");
             }
+            if (server.importedEnrollment && !server.isP12Cert && (server.username == null || server.username.trim().isEmpty()
+                    || server.password == null || server.password.isEmpty())) {
+                throw new IllegalArgumentException("Server " + (i + 1) + " needs an enrollment username and password before sending.");
+            }
             list.put(server.toJson());
         }
         JSONObject payload = new JSONObject();
         payload.put("takServerList", list);
         if (interval != null) payload.put("reportIntSecs", interval);
         if (callsign != null && !callsign.trim().isEmpty()) payload.put("callsign", callsign.trim());
-        if (managed) {
+        if (managed || copyIdentityOnce) {
             payload.put("team", team);
             payload.put("role", role);
         }

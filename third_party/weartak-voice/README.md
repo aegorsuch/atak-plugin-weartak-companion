@@ -1,0 +1,1 @@
+Four unmodified channel-package protocol classes from https://github.com/alexanderhavang-ops/weartak-voice at d220764e3c212d9c31c34c51ceffba92c82bf127. GPL-3.0. Configuration only; no voice credentials. Keep synchronized with the upstream core module.

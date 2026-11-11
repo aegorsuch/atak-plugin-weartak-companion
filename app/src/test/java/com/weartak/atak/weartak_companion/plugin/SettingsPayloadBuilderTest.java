@@ -106,4 +106,15 @@ public class SettingsPayloadBuilderTest {
         assertThrows(IllegalArgumentException.class, () -> SettingsPayloadBuilder.build(
                 Collections.emptyList(), -1, "WATCH", null, null, false));
     }
+
+    @Test public void standaloneIdentityCopyIncludesTeamColorAndRoleWithoutManagement() throws Exception {
+        JSONObject payload=SettingsPayloadBuilder.build(Collections.emptyList(),null,
+                "PHONE","Dark Green","Medic",false,null,true).getJSONObject("payload");
+        assertEquals("PHONE",payload.getString("callsign"));
+        assertEquals("Dark Green",payload.getString("team"));assertEquals("Medic",payload.getString("role"));
+        assertFalse(payload.getBoolean("phoneManagedSettings"));
+        assertFalse(payload.has("uid"));assertFalse(payload.has("serverId"));assertFalse(payload.has("reportIntSecs"));
+        assertThrows(IllegalArgumentException.class,()->SettingsPayloadBuilder.build(Collections.emptyList(),null,
+                "PHONE",null,"Medic",false,null,true));
+    }
 }
