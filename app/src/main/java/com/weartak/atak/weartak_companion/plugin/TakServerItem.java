@@ -14,6 +14,7 @@ public class TakServerItem {
     public String p12CertPassword;
     public String serverId;
     public transient String p12DisplayName;
+    public transient boolean importedEnrollment;
 
     public TakServerItem() {}
 

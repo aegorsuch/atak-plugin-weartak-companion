@@ -3,6 +3,7 @@ package com.weartak.atak.weartak_companion.plugin;
 import org.junit.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import java.nio.file.Paths;
@@ -41,16 +42,56 @@ public class CompanionPaneLayoutTest {
         assertSame(document.getDocumentElement(), byId(document, "settingsScreenRoot").getParentNode());
     }
 
-    @Test public void purposeSelectorHasItsOwnFullWidthWrappingRow() throws Exception {
+    @Test public void connectionPurposeHasThreeSeparateChoicesAndOneScrollOwner() throws Exception {
         Document document = layout("main_layout.xml");
-        Element purpose = byId(document, "purposeButton");
-        assertSame(byId(document, "deviceScreenRoot"), purpose.getParentNode());
-        assertNotSame(byId(document, "diagnosticsToggle").getParentNode(), purpose.getParentNode());
+        Element purpose = byId(document, "connectionPurpose");
+        assertEquals("RadioGroup", purpose.getTagName());
+        assertSame(byId(document, "connectChoices"), purpose.getParentNode());
+        assertSame(byId(document, "deviceScreenRoot"), purpose.getParentNode().getParentNode());
         assertEquals("match_parent", purpose.getAttribute("android:layout_width"));
-        assertEquals("wrap_content", purpose.getAttribute("android:layout_height"));
-        assertFalse(purpose.hasAttribute("android:maxLines"));
-        assertFalse(purpose.hasAttribute("android:ellipsize"));
-        assertEquals("false", purpose.getAttribute("android:textAllCaps"));
+        for (String id : new String[]{"purposeBond", "purposeConfigure", "purposeGateway"}) {
+            Element choice = byId(document, id);
+            assertSame(purpose, choice.getParentNode());
+            assertEquals("RadioButton", choice.getTagName());
+            assertFalse(choice.hasAttribute("android:maxLines"));
+        }
+    }
+
+    @Test public void scanResultsStayAdjacentToTheScanAndRecoveryControls() throws Exception {
+        Document document = layout("main_layout.xml");
+        Element results = byId(document, "deviceList");
+        assertSame(byId(document, "deviceScreenRoot"), results.getParentNode());
+        assertSame(byId(document, "emptyState"), previousElement(results));
+        assertSame(byId(document, "pairingRecoveryPanel"), previousElement(byId(document, "emptyState")));
+        assertSame(byId(document, "bleStatusRow"), previousElement(byId(document, "pairingRecoveryPanel")));
+    }
+
+    @Test public void watchOverviewAndConfigurationOfferDistinctActions() throws Exception {
+        Document document = layout("main_layout.xml");
+        Element home = byId(document, "watchHomeScreen");
+        Element capabilities = byId(document, "watchCapabilitiesPanel");
+        assertSame(document.getDocumentElement(), home.getParentNode());
+        assertSame(home, capabilities.getParentNode().getParentNode());
+        assertEquals("gone", capabilities.getAttribute("android:visibility"));
+        for (String id : new String[]{"openWatchSettingsButton", "watchDetailsButton", "watchHomeDisconnect"}) {
+            Element action = byId(document, id);
+            assertSame(capabilities, action.getParentNode());
+            assertEquals("Button", action.getTagName());
+            assertEquals("48dp", action.getAttribute("android:minHeight"));
+        }
+        Element settingsMenu = byId(document, "configureWatchMenu");
+        assertSame(settingsMenu, byId(document, "openWatchReadback").getParentNode());
+        assertSame(settingsMenu, byId(document, "voiceChannelsButton").getParentNode().getParentNode());
+        assertSame(settingsMenu, byId(document, "importAtakServerButton").getParentNode().getParentNode());
+        assertSame(byId(document, "watchReadback"), byId(document, "refreshSettingsButton").getParentNode());
+    }
+
+    private static Node previousElement(Node node) {
+        Node sibling = node.getPreviousSibling();
+        while (sibling != null && sibling.getNodeType() != Node.ELEMENT_NODE) {
+            sibling = sibling.getPreviousSibling();
+        }
+        return sibling;
     }
 
     @Test public void smallLogGlyphsRetainAccessibleTouchTargets() throws Exception {

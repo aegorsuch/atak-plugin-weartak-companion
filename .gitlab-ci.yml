@@ -35,6 +35,9 @@ field_report_regressions:
         "$main/GarminEntityAdapter.java" "$main/GarminEntityForwarder.java" \
         "$main/ConnectionModeController.java" \
         "$main/AtakUnitPreferences.java" "$main/SettingsPayloadBuilder.java" "$main/TakServerItem.java" \
+        "$tests/TransferCertificates.java" \
+        "$main/AtakServerImport.java" "$tests/AtakServerImportTest.java" \
+        "$main/AtakServerTransfer.java" "$tests/AtakServerTransferTest.java" \
         "$tests/AtakUnitPreferencesTest.java" "$tests/SettingsPayloadBuilderTest.java" \
         "$tests/PhonePositionActionsTest.java" "$tests/WatchMessageIdsTest.java" \
         "$tests/CompanionDiagnosticLoggerTest.java" \
@@ -50,6 +53,8 @@ field_report_regressions:
       java -cp '.regression-classes:.regression-libs/*' org.junit.runner.JUnitCore \
         com.weartak.atak.weartak_companion.plugin.BondFailureTrackerTest \
         com.weartak.atak.weartak_companion.plugin.AtakUnitPreferencesTest \
+        com.weartak.atak.weartak_companion.plugin.AtakServerImportTest \
+        com.weartak.atak.weartak_companion.plugin.AtakServerTransferTest \
         com.weartak.atak.weartak_companion.plugin.SettingsPayloadBuilderTest \
         com.weartak.atak.weartak_companion.plugin.PhonePositionActionsTest \
         com.weartak.atak.weartak_companion.plugin.WatchMessageIdsTest \

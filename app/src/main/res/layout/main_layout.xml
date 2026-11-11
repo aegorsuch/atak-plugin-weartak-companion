@@ -4,11 +4,114 @@
     android:layout_height="match_parent"
     android:padding="8dp">
 
-    <!-- DEVICE SCREEN -->
     <ScrollView
-        android:id="@+id/deviceScreenScroll"
+        android:id="@+id/watchHomeScreen"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:fillViewport="true">
+        <LinearLayout
+            android:id="@+id/watchHomeContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/app_name"
+                        android:textStyle="bold"
+                        android:textSize="16sp"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                    <ImageButton
+                        android:id="@+id/diagnosticsToggle"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:padding="16dp"
+                        android:scaleType="fitCenter"
+                        android:background="@android:color/transparent"
+                        android:src="@drawable/ic_log"
+                        android:contentDescription="@string/diagnostics_label" />
+                    <ImageButton
+                        android:id="@+id/diagnosticsExportButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:padding="16dp"
+                        android:scaleType="fitCenter"
+                        android:background="@android:color/transparent"
+                        android:src="@drawable/ic_send_log"
+                        android:contentDescription="@string/diagnostics_export_description" />
+                    </LinearLayout>
+            <LinearLayout
+                android:id="@+id/watchHomeCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="12dp"
+                android:layout_marginBottom="8dp">
+                <TextView
+                    android:id="@+id/watchHomeHeading"
+                    style="@style/CompanionHeading"
+                    android:text="@string/companion_watch" />
+                <TextView
+                    android:id="@+id/watchHomeStatus"
+                    style="@style/CompanionSubtitle"
+                    android:text="@string/companion_disconnected" />
+                <TextView
+                    android:id="@+id/watchHomeTransport"
+                    style="@style/CompanionSubtitle"
+                    android:visibility="gone"
+                    android:drawablePadding="6dp"
+                    android:gravity="center_vertical" />
+                <TextView
+                    android:id="@+id/watchHomePurpose"
+                    style="@style/CompanionSubtitle"
+                    android:visibility="gone" />
+            </LinearLayout>
+            <Button
+                android:id="@+id/watchHomeConnect"
+                android:minHeight="48dp"
+                style="@style/CompanionPrimaryAction"
+                android:text="@string/companion_connect_watch" />
+            <LinearLayout
+                android:id="@+id/watchCapabilitiesPanel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+                <Button
+                    android:id="@+id/openWatchSettingsButton"
+                android:minHeight="48dp"
+                    style="@style/CompanionPrimaryAction"
+                    android:text="@string/companion_configure_watch" />
+                <Button
+                    android:id="@+id/watchDetailsButton"
+                android:minHeight="48dp"
+                    style="@style/CompanionAction"
+                    android:text="@string/watch_details" />
+                <Button
+                    android:id="@+id/watchHomeDisconnect"
+                android:minHeight="48dp"
+                    style="@style/CompanionAction"
+                    android:text="@string/companion_disconnect_watch"
+                    android:layout_marginTop="12dp" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- CONNECTION SCREEN -->
+    <ScrollView
+        android:id="@+id/deviceScreenScroll"
+        android:visibility="gone"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scrollbars="vertical"
         android:fillViewport="true">
     <LinearLayout
         android:id="@+id/deviceScreenRoot"
@@ -16,53 +119,52 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/app_name"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:maxLines="1"
-            android:ellipsize="end" />
-        <ImageButton
-            android:id="@+id/diagnosticsToggle"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:padding="16dp"
-            android:scaleType="fitCenter"
-            android:background="@android:color/transparent"
-            android:src="@drawable/ic_log"
-            android:contentDescription="@string/diagnostics_label" />
-        <ImageButton
-            android:id="@+id/diagnosticsExportButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:padding="16dp"
-            android:scaleType="fitCenter"
-            android:background="@android:color/transparent"
-            android:src="@drawable/ic_send_log"
-            android:contentDescription="@string/diagnostics_export_description" />
-        </LinearLayout>
         <Button
-            android:id="@+id/purposeButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="48dp"
-            android:minWidth="0dp"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:textSize="13sp"
-            android:textAllCaps="false"
-            android:text="Bond Single Watch"
-            android:drawableEnd="@android:drawable/arrow_down_float" />
+            android:id="@+id/connectBackButton"
+            style="@style/CompanionBackAction"
+            android:text="@string/companion_back_to_watch" />
+
+        <TextView
+            android:id="@+id/connectHeading"
+            style="@style/CompanionHeading"
+            android:text="@string/companion_connect_watch" />
 
         <LinearLayout
+            android:id="@+id/connectChoices"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView
+                style="@style/CompanionSectionHeading"
+                android:text="@string/companion_purpose" />
+            <RadioGroup
+                android:id="@+id/connectionPurpose"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <RadioButton
+                    android:id="@+id/purposeBond"
+                    style="@style/CompanionPurposeChoice"
+                    android:text="@string/companion_purpose_bond_description" />
+                <RadioButton
+                    android:id="@+id/purposeConfigure"
+                    style="@style/CompanionPurposeChoice"
+                    android:text="@string/companion_purpose_configure_description" />
+                <RadioButton
+                    android:id="@+id/purposeGateway"
+                    style="@style/CompanionPurposeChoice"
+                    android:text="@string/companion_purpose_gateway_description" />
+            </RadioGroup>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/openGatewayButton"
+            style="@style/CompanionPrimaryAction"
+            android:text="@string/companion_open_gateway"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/connectionTransportRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
@@ -71,7 +173,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Pairing Mode:"
+                android:text="@string/companion_connection_method"
                 android:textStyle="bold"
                 android:textSize="12sp"
                 android:layout_marginEnd="8dp" />
@@ -100,6 +202,21 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
         </FrameLayout>
+        <LinearLayout
+            android:id="@+id/savedWatchReconnect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+            <TextView
+                android:id="@+id/savedWatchLabel"
+                style="@style/CompanionSubtitle" />
+            <Button
+                android:id="@+id/reconnectWatchButton"
+                style="@style/CompanionPrimaryAction"
+                android:text="@string/companion_reconnect" />
+        </LinearLayout>
+
         <LinearLayout
             android:id="@+id/bleStatusRow"
             android:layout_width="match_parent"
@@ -156,6 +273,20 @@
             android:orientation="vertical"
             android:padding="8dp"
             android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/emptyState"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="10dp"
+            android:visibility="gone" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/deviceList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false"
+            android:paddingTop="4dp" />
 
         <TextView
             android:id="@+id/locationDiagnosticsStatus"
@@ -299,19 +430,6 @@
 
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/emptyState"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingTop="10dp"
-            android:visibility="gone" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/deviceList"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false"
-            android:paddingTop="4dp" />
 
     </LinearLayout>
     </ScrollView>
@@ -330,57 +448,100 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Header -->
+            <Button
+                android:id="@+id/settingsBackButton"
+                style="@style/CompanionBackAction"
+                android:text="@string/companion_back_to_watch" />
+
+            <TextView
+                android:id="@+id/settingsHeading"
+                style="@style/CompanionHeading"
+                android:text="@string/companion_configure_watch" />
+
             <LinearLayout
+                android:id="@+id/configureWatchMenu"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
+                android:orientation="vertical">
                 <Button
-                    android:id="@+id/settingsBackButton"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/openWatchReadback"
+                    style="@style/CompanionAction"
+                    android:text="@string/companion_saved_settings" />
+                <LinearLayout
+                    android:id="@+id/configureTakMenu"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Back" />
+                    android:orientation="vertical">
+                    <TextView
+                        style="@style/CompanionSectionHeading"
+                        android:text="@string/companion_tak_server" />
+                    <TextView
+                        android:id="@+id/configureWatchServer"
+                        style="@style/CompanionSubtitle"
+                        android:visibility="gone" />
+                    <Button
+                        android:id="@+id/importAtakServerButton"
+                        style="@style/CompanionPrimaryAction"
+                        android:text="@string/import_atak_title" />
+                </LinearLayout>
+                <Button
+                    android:id="@+id/openCustomServerEditor"
+                    style="@style/CompanionAction"
+                    android:text="@string/companion_manual_setup" />
+                <LinearLayout
+                    android:id="@+id/configureVoiceMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="12dp">
+                    <Button
+                        android:id="@+id/voiceChannelsButton"
+                        style="@style/CompanionAction"
+                        android:text="@string/companion_voice_channels"
+                        android:enabled="false" />
+                    <TextView
+                        android:id="@+id/voiceReadinessStatus"
+                        style="@style/CompanionSubtitle"
+                        android:visibility="gone" />
+                    <TextView
+                        android:id="@+id/voiceTransferStatus"
+                        style="@style/CompanionSubtitle"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </LinearLayout>
 
+            <LinearLayout
+                android:id="@+id/watchReadback"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
                 <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="WearTAK Settings"
-                    android:textStyle="bold"
-                    android:textSize="18sp"
-                    android:gravity="center_vertical"
-                    android:paddingLeft="10dp" />
+                    style="@style/CompanionSectionHeading"
+                    android:text="@string/companion_tak_server" />
+                <TextView
+                    android:id="@+id/watchReadbackServers"
+                    style="@style/CompanionSubtitle" />
+                <TextView
+                    style="@style/CompanionSectionHeading"
+                    android:text="@string/watch_settings" />
+                <TextView
+                    android:id="@+id/watchReadbackIdentity"
+                    style="@style/CompanionSubtitle" />
+                <Button
+                    android:id="@+id/refreshSettingsButton"
+                    style="@style/CompanionPrimaryAction"
+                    android:text="@string/companion_refresh_watch" />
             </LinearLayout>
 
             <TextView
                 android:id="@+id/settingsStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingTop="8dp"
-                android:text="" />
+                style="@style/CompanionSubtitle"
+                android:accessibilityLiveRegion="polite" />
 
-            <!-- Action buttons -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/refreshSettingsButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Refresh from Watch" />
-
-                <Button
-                    android:id="@+id/sendSettingsButton"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Send to Watch" />
-            </LinearLayout>
-
+            <LinearLayout android:id="@+id/customSettingsProfile"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical">
             <CheckBox
                 android:id="@+id/phoneManagedSettings"
                 android:layout_width="match_parent"
@@ -394,6 +555,13 @@
                 android:layout_height="wrap_content"
                 android:text="Use this phone's ATAK identity for the connected watch."
                 android:paddingBottom="4dp" />
+
+            <CheckBox
+                android:id="@+id/copyPhoneIdentityOnce"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:text="@string/copy_atak_identity_once" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -470,25 +638,16 @@
                     android:alpha="0.85" />
             </LinearLayout>
 
-            <Button
-                android:id="@+id/standaloneSetupButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Standalone Setup"
-                android:contentDescription="Show standalone TAK server and P12 setup" />
-
+            </LinearLayout>
             <LinearLayout
                 android:id="@+id/serverSettingsGroup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:visibility="gone">
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Configure a TAK server and upload a P12 for standalone watch use. Send to Watch and wait for confirmation before disconnecting."
-                    android:paddingBottom="8dp" />
-                <!-- TAK Servers -->
+                <LinearLayout android:id="@+id/customServerEditorGroup"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:visibility="gone">
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -559,14 +718,14 @@
                     android:id="@+id/takUsername"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Username (if not P12)"
+                    android:hint="Username (also retained with P12)"
                     android:inputType="text" />
 
                 <EditText
                     android:id="@+id/takPassword"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Password (if not P12)"
+                    android:hint="Password (also retained with P12)"
                     android:inputType="textPassword" />
 
                 <TextView
@@ -608,7 +767,14 @@
                         android:layout_marginStart="8dp"
                         android:text="Clear" />
                 </LinearLayout>
+                </LinearLayout>
             </LinearLayout>
+
+            <Button
+                android:id="@+id/sendSettingsButton"
+                style="@style/CompanionPrimaryAction"
+                android:text="@string/companion_send_to_watch"
+                android:visibility="gone" />
 
         </LinearLayout>
     </ScrollView>
