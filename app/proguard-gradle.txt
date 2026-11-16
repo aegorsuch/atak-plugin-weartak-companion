@@ -104,4 +104,6 @@
 -dontwarn org.osgi.annotation.bundle.Export
 
 # Ditto's C interop resolves companion objects through Kotlin reflection.
+# Keep Kotlin metadata available to reflection after R8 processing.
+-keep class kotlin.Metadata
 -keep class com.ditto.** { *; }
