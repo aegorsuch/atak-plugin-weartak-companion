@@ -141,6 +141,21 @@ class GitHubClient(ApiClient):
                 "to the personal mirror before publication."
             )
 
+    def report_personal_access_statuses(self) -> None:
+        endpoints = (
+            ("identity", "https://api.github.com/user"),
+            ("repository", f"https://api.github.com{self.repository_path}"),
+            (
+                "main_ref",
+                f"https://api.github.com{self.repository_path}/git/ref/heads/main",
+            ),
+        )
+        statuses = []
+        for label, url in endpoints:
+            status, _, _ = self.request("GET", url)
+            statuses.append(f"{label}={status}")
+        print("GitHub read-only access statuses (HTTP only): " + " ".join(statuses))
+
     def sync_personal_main(self, source_sha: str, project_dir: Path) -> None:
         if self.repository != EXPECTED_PERSONAL_GITHUB_REPOSITORY:
             raise PublishError("Automatic source synchronization is personal-mirror only.")
@@ -221,6 +236,7 @@ class GitHubClient(ApiClient):
         ref_path = "/git/ref/heads/main"
         status, remote = self.json_request("GET", ref_path)
         if status != 200 or not isinstance(remote, dict):
+            self.report_personal_access_statuses()
             raise PublishError(
                 f"Could not inspect personal main ref before sync (HTTP {status})"
             )
