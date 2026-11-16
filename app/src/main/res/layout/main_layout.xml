@@ -299,6 +299,62 @@
 
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/dittoPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="8dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Ditto ESH"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:paddingBottom="4dp" />
+
+            <EditText
+                android:id="@+id/dittoDatabaseId"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Ditto database ID"
+                android:inputType="text"
+                android:singleLine="true" />
+
+            <EditText
+                android:id="@+id/dittoServerUrl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="ESH server URL"
+                android:inputType="textUri"
+                android:singleLine="true" />
+
+            <EditText
+                android:id="@+id/dittoAuthToken"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Ditto development token"
+                android:inputType="textPassword"
+                android:singleLine="true" />
+
+            <Button
+                android:id="@+id/dittoConnectButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:textAllCaps="false"
+                android:text="Connect to ESH" />
+
+            <TextView
+                android:id="@+id/dittoConnectionStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                android:text="Not connected"
+                android:textSize="12sp" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/emptyState"
             android:layout_width="match_parent"

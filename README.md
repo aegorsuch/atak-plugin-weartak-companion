@@ -10,6 +10,7 @@ the Garmin Connect IQ relay and an exclusive three-mode connection selector.
 The optional Garmin Connect IQ
 transport uses Garmin Connect Mobile on the phone rather than the
 Samsung/Wear OS BLE connection.
+The plugin also includes an optional Ditto SDK connection to a Ditto ESH.
 
 The phone-to-WearOS point relay forwards all non-user `a-*` atoms (including
 aircraft, surface and detailed ground types) plus SPI `b-m-p-s-p-i`, preserving
@@ -44,7 +45,7 @@ is established here.
 ## Equipment Required
 
 - Android phone/tablet running the matching ATAK host; current build configuration
-  targets ATAK 5.6.0 and Android API 23 or later.
+  targets ATAK 5.6.0 and Android API 24 or later.
 - Compatible WearTAK watch and Bluetooth for watch transport. Grant the ATAK host
   the Bluetooth/location permissions required by its Android version.
 - Samsung Wearable mode: existing system bond established through Galaxy Wearable
@@ -70,7 +71,7 @@ Developer Notes.
 
 Plugin version 5.6.0 targets ATAK 5.6.0 (plugin-api com.atakmap.app@5.6.0.CIV for
 the CIV variant). Use JDK 17 to run Gradle 8.14.3 with Android Gradle Plugin
-8.13.2, Android SDK platform 36, compile/target SDK 36, and minimum SDK 23.
+8.13.2, Android SDK platform 36, compile/target SDK 36, and minimum SDK 24.
 Java source and bytecode compatibility remain Java 8.
 
 TPP should configure its authenticated takrepo.url/user/password in
@@ -92,6 +93,21 @@ are described below. These local checks do not establish device compatibility
 or release packaging/signing.
 
 ## Developer Notes
+
+### Ditto ESH connection
+
+The device panel accepts a Ditto database ID, ESH server URL, and development
+token, then starts Ditto sync in the plugin. Companion does not persist or log
+the token; it clears the input after use. Sync stops when the plugin stops.
+The local replica uses an app-private, database-ID-scoped directory to avoid
+colliding with another Ditto plugin; reconnect attempts are serialized.
+The plugin subscribes to the existing WearTAK v2 `track`, `mapitem`, and `alert`
+collections and imports supported CoT position, marker, alert, and chat events
+into ATAK. Point deletion is honored only for the existing `weartakPoint`
+tombstone contract and Ditto-imported markers. Routes are not imported.
+The UI reports ESH connected only when Ditto's `system:data_sync_info`
+observer reports a connected server; a running sync alone is not proof of
+remote connectivity.
 
 ### Repositories
 

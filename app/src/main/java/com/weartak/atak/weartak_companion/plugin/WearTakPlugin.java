@@ -1,10 +1,13 @@
 package com.weartak.atak.weartak_companion.plugin;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -28,6 +31,7 @@ import android.widget.TextView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -58,10 +62,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
+import java.util.concurrent.atomic.AtomicLong;
 
 import gov.tak.api.plugin.IPlugin;
 import gov.tak.api.plugin.IServiceController;
@@ -129,6 +135,19 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
     private JSONObject watchLocationDiagnostics;
     private MultiwatchGateway gateway;
     private View garminSettingsButton;
+    private EditText dittoDatabaseIdET;
+    private EditText dittoServerUrlET;
+    private EditText dittoAuthTokenET;
+    private Button dittoConnectButton;
+    private TextView dittoConnectionStatusTV;
+    private String dittoDatabaseIdValue = "";
+    private String dittoServerUrlValue = "";
+    private boolean dittoSyncStarting;
+    private volatile boolean dittoPluginStarted;
+    private volatile boolean dittoEshConnected;
+    private final AtomicLong dittoUiGeneration = new AtomicLong();
+    private final LinkedHashMap<String, String> dittoDocumentFingerprints = new LinkedHashMap<>();
+    private static final int DITTO_PERMISSION_REQUEST_CODE = 5310;
     private View serverSettingsGroup;
     private Button standaloneSetupButton;
     private final SettingsSessionGuard settingsSession = new SettingsSessionGuard();
@@ -610,6 +629,14 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
             return;
         }
 
+        dittoPluginStarted = true;
+        dittoUiGeneration.incrementAndGet();
+        dittoSyncStarting = false;
+        dittoEshConnected = false;
+        synchronized (dittoDocumentFingerprints) {
+            dittoDocumentFingerprints.clear();
+        }
+        DittoEshConnection.startSession();
         initializeDiagnosticLogger();
         identityObserverActive = true;
         MapView identityMap = MapView.getMapView();
@@ -1624,7 +1651,25 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
 
     @Override
     public void onStop() {
+        dittoPluginStarted = false;
+        dittoEshConnected = false;
+        long stopGeneration = DittoEshConnection.invalidateSession();
+        long uiGeneration = dittoUiGeneration.incrementAndGet();
+        synchronized (dittoDocumentFingerprints) {
+            dittoDocumentFingerprints.clear();
+        }
+        new Thread(() -> {
+            try {
+                DittoEshConnection.stopSync(stopGeneration);
+            } catch (RuntimeException e) {
+                LogX.e(TAG, "Ditto shutdown failed; type=" + e.getClass().getSimpleName());
+            }
+        }, "WTK-Ditto-stop").start();
         runOnMain(() -> {
+            if (dittoUiGeneration.get() == uiGeneration) {
+                dittoSyncStarting = false;
+                updateDittoConnectionStatus("Not connected");
+            }
             identityObserverActive = false;
             receivedCotTiming.stop();
             phoneIdentityObserver.stop();
@@ -1645,6 +1690,232 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
                 diagnosticLogger = null;
             }
         });
+    }
+
+    private boolean requestDittoPermissions() {
+        Context context = MapView.getMapView() == null
+                ? pluginContext : MapView.getMapView().getContext();
+        if (context == null) return false;
+
+        ArrayList<String> missing = new ArrayList<>();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            addMissingPermission(context, missing, Manifest.permission.BLUETOOTH_ADVERTISE);
+            addMissingPermission(context, missing, Manifest.permission.BLUETOOTH_CONNECT);
+            addMissingPermission(context, missing, Manifest.permission.BLUETOOTH_SCAN);
+        }
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+            addMissingPermission(context, missing, Manifest.permission.ACCESS_FINE_LOCATION);
+            addMissingPermission(context, missing, Manifest.permission.ACCESS_COARSE_LOCATION);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            addMissingPermission(context, missing, Manifest.permission.NEARBY_WIFI_DEVICES);
+        }
+        if (missing.isEmpty()) return true;
+
+        Activity activity = findHostActivity(context);
+        if (activity != null) {
+            activity.requestPermissions(missing.toArray(new String[0]),
+                    DITTO_PERMISSION_REQUEST_CODE);
+            updateDittoConnectionStatus("Grant nearby-device permissions, then tap Connect again.");
+        } else {
+            updateDittoConnectionStatus("Grant Ditto nearby-device permissions in Android Settings.");
+        }
+        return false;
+    }
+
+    private static void addMissingPermission(Context context, List<String> missing,
+            String permission) {
+        if (ContextCompat.checkSelfPermission(context, permission)
+                != PackageManager.PERMISSION_GRANTED) {
+            missing.add(permission);
+        }
+    }
+
+    private static Activity findHostActivity(Context context) {
+        Context current = context;
+        while (current instanceof ContextWrapper) {
+            if (current instanceof Activity) return (Activity) current;
+            Context next = ((ContextWrapper) current).getBaseContext();
+            if (next == current) break;
+            current = next;
+        }
+        return current instanceof Activity ? (Activity) current : null;
+    }
+
+    private void updateDittoConnectionStatus(String status) {
+        if (dittoConnectionStatusTV != null) dittoConnectionStatusTV.setText(status);
+        if (dittoConnectButton != null) {
+            dittoConnectButton.setEnabled(!dittoSyncStarting);
+            dittoConnectButton.setText(DittoEshConnection.isSyncActive()
+                    ? "Disconnect" : "Connect to ESH");
+        }
+    }
+
+    private void onDittoConnectionClicked() {
+        if (!dittoPluginStarted || dittoSyncStarting) return;
+        if (DittoEshConnection.isSyncActive()) {
+            dittoSyncStarting = true;
+            updateDittoConnectionStatus("Disconnecting from Ditto ESH...");
+            final long uiGeneration = dittoUiGeneration.get();
+            new Thread(() -> {
+                try {
+                    DittoEshConnection.disconnect();
+                    runOnMain(() -> {
+                        if (!isCurrentDittoUi(uiGeneration)) return;
+                        dittoSyncStarting = false;
+                        dittoEshConnected = false;
+                        updateDittoConnectionStatus("Not connected");
+                    });
+                } catch (Exception e) {
+                    String category = dittoFailureCategory(e);
+                    LogX.e(TAG, "Ditto disconnect failed; category=" + category
+                            + ", type=" + e.getClass().getSimpleName());
+                    runOnMain(() -> {
+                        if (!isCurrentDittoUi(uiGeneration)) return;
+                        dittoSyncStarting = false;
+                        updateDittoConnectionStatus("Could not stop Ditto sync (" + category + ").");
+                    });
+                }
+            }, "WTK-Ditto-disconnect").start();
+            return;
+        }
+
+        dittoDatabaseIdValue = dittoDatabaseIdET.getText().toString().trim();
+        dittoServerUrlValue = dittoServerUrlET.getText().toString().trim();
+        String token = dittoAuthTokenET.getText().toString();
+        if (dittoDatabaseIdValue.isEmpty() || dittoServerUrlValue.isEmpty()
+                || token.trim().isEmpty()) {
+            updateDittoConnectionStatus("Enter database ID, ESH server URL, and development token.");
+            return;
+        }
+        if (!requestDittoPermissions()) return;
+
+        dittoSyncStarting = true;
+        dittoEshConnected = false;
+        updateDittoConnectionStatus("Starting Ditto sync...");
+        final String databaseId = dittoDatabaseIdValue;
+        final String serverUrl = dittoServerUrlValue;
+        final MapView mapView = MapView.getMapView();
+        final Context context = mapView == null ? pluginContext : mapView.getContext();
+        final long uiGeneration = dittoUiGeneration.get();
+        dittoAuthTokenET.setText("");
+        new Thread(() -> {
+            try {
+                DittoEshConnection.connect(context, databaseId, serverUrl, token,
+                        new DittoEshListener() {
+                            @Override public void onCollectionSnapshot(
+                                    String collection, List<String> documents) {
+                                processDittoSnapshot(collection, documents, uiGeneration);
+                            }
+
+                            @Override public void onEshConnectionStatus(boolean connected) {
+                                runOnMain(() -> {
+                                    if (!isCurrentDittoUi(uiGeneration)) return;
+                                    dittoEshConnected = connected;
+                                    updateDittoConnectionStatus(dittoStatusText());
+                                });
+                            }
+
+                            @Override public void onObserverError(String category) {
+                                LogX.w(TAG, "Ditto observer issue; category=" + category);
+                                if ("sync-status".equals(category)) {
+                                    runOnMain(() -> {
+                                        if (!isCurrentDittoUi(uiGeneration)) return;
+                                        dittoEshConnected = false;
+                                        updateDittoConnectionStatus(
+                                                "Sync active; ESH connection status unavailable.");
+                                    });
+                                }
+                            }
+                        });
+                runOnMain(() -> {
+                    if (!isCurrentDittoUi(uiGeneration)) return;
+                    dittoSyncStarting = false;
+                    updateDittoConnectionStatus(dittoEshConnected
+                            ? "Connected to Ditto ESH." : dittoStatusText());
+                });
+            } catch (Exception e) {
+                String category = dittoFailureCategory(e);
+                LogX.e(TAG, "Ditto connect failed; category=" + category
+                        + ", type=" + e.getClass().getSimpleName());
+                runOnMain(() -> {
+                    if (!isCurrentDittoUi(uiGeneration)) return;
+                    dittoSyncStarting = false;
+                    updateDittoConnectionStatus(dittoFailureMessage(category));
+                });
+            }
+        }, "WTK-Ditto-connect").start();
+    }
+
+    private boolean isCurrentDittoUi(long generation) {
+        return dittoPluginStarted && dittoUiGeneration.get() == generation;
+    }
+
+    private String dittoStatusText() {
+        return dittoEshConnected
+                ? "Connected to Ditto ESH."
+                : "Sync active; ESH connectivity not confirmed.";
+    }
+
+    private static String dittoFailureCategory(Exception error) {
+        String type = error.getClass().getSimpleName().toLowerCase(java.util.Locale.ROOT);
+        if (error instanceof IllegalArgumentException) return "configuration";
+        if (type.contains("auth") || type.contains("token")) return "authentication";
+        if (type.contains("network") || type.contains("connect")
+                || type.contains("transport") || type.contains("timeout")) return "network";
+        return "sdk";
+    }
+
+    private static String dittoFailureMessage(String category) {
+        if ("authentication".equals(category)) {
+            return "Authentication failed; check database ID and development token.";
+        }
+        if ("network".equals(category)) {
+            return "ESH transport failed; check HTTPS URL, network, and ESH availability.";
+        }
+        if ("configuration".equals(category)) {
+            return "Ditto configuration rejected; check database ID and ESH URL.";
+        }
+        return "Ditto SDK operation failed; see credential-safe diagnostic category.";
+    }
+
+    private void processDittoSnapshot(String collection, List<String> documents, long uiGeneration) {
+        if (!isCurrentDittoUi(uiGeneration)) return;
+        for (String json : documents) {
+            if (!isCurrentDittoUi(uiGeneration)) return;
+            try {
+                DittoCotAdapter.Document document = DittoCotAdapter.decode(collection, json);
+                if (document == null) continue;
+                String key = collection + "|" + document.peer + "|" + document.uid;
+                String fingerprint = DittoCotAdapter.fingerprint(json);
+                synchronized (dittoDocumentFingerprints) {
+                    if (fingerprint.equals(dittoDocumentFingerprints.get(key))) continue;
+                }
+
+                BleCotBridge bridge = bleCotBridge;
+                if (document.deleted) {
+                    if (bridge == null) continue;
+                    bridge.removeDittoMarker(document.uid);
+                } else {
+                    MapView map = MapView.getMapView();
+                    if (map != null && map.getSelfMarker() != null
+                            && document.uid.equals(map.getSelfMarker().getUID())) continue;
+                    if (bridge == null) continue;
+                    bridge.forwardDittoCot(document.xml);
+                }
+
+                synchronized (dittoDocumentFingerprints) {
+                    dittoDocumentFingerprints.put(key, fingerprint);
+                    while (dittoDocumentFingerprints.size() > 16384) {
+                        dittoDocumentFingerprints.remove(
+                                dittoDocumentFingerprints.keySet().iterator().next());
+                    }
+                }
+            } catch (Exception e) {
+                LogX.w(TAG, "Rejected Ditto " + collection + " document; type="
+                        + e.getClass().getSimpleName());
+            }
+        }
     }
 
     private void initializeDiagnosticLogger() {
@@ -2356,6 +2627,16 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
             garminConnectionStatusTV = paneView.findViewById(R.id.garminConnectionStatus);
             garminIdentityRows = paneView.findViewById(R.id.garminIdentityRows);
             garminConnectionBadgeTV = paneView.findViewById(R.id.garminConnectionBadge);
+            dittoDatabaseIdET = paneView.findViewById(R.id.dittoDatabaseId);
+            dittoServerUrlET = paneView.findViewById(R.id.dittoServerUrl);
+            dittoAuthTokenET = paneView.findViewById(R.id.dittoAuthToken);
+            dittoConnectButton = paneView.findViewById(R.id.dittoConnectButton);
+            dittoConnectionStatusTV = paneView.findViewById(R.id.dittoConnectionStatus);
+            dittoDatabaseIdET.setText(dittoDatabaseIdValue);
+            dittoServerUrlET.setText(dittoServerUrlValue);
+            dittoConnectButton.setOnClickListener(v -> onDittoConnectionClicked());
+            updateDittoConnectionStatus(DittoEshConnection.isSyncActive()
+                    ? dittoStatusText() : "Not connected");
             garminSettingsButton = paneView.findViewById(R.id.garminSettingsButton);
             garminSettingsButton.setOnClickListener(v -> openGarminSettings());
             if (garminClient != null) {

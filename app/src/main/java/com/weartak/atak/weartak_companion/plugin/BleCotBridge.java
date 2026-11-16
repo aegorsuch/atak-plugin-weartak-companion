@@ -150,6 +150,24 @@ public class BleCotBridge {
         externalCotDispatcher.dispatch(event);
     }
 
+    void forwardDittoCot(String xml) {
+        CotEvent event = GatewayCot.validateDitto(xml);
+        if (internalCotDispatcher == null) {
+            throw new IllegalStateException("ATAK CoT dispatchers unavailable");
+        }
+        Bundle extras = new Bundle();
+        extras.putBoolean(PhoneMarkerMapRelay.DITTO_IMPORT, true);
+        internalCotDispatcher.dispatch(event, extras);
+        if (externalCotDispatcher != null) externalCotDispatcher.dispatch(event);
+    }
+
+    void removeDittoMarker(String uid) {
+        MapItem item = mapView == null ? null : mapView.getRootGroup().deepFindUID(uid);
+        if (item instanceof Marker && item.getMetaBoolean(PhoneMarkerMapRelay.DITTO_IMPORT, false)) {
+            item.removeFromGroup();
+        }
+    }
+
     private void forwardChatToWatch(Bundle message) {
         if (message == null) return;
         String senderUid = message.getString("senderUid");
