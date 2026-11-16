@@ -333,7 +333,7 @@ class RollingReleaseTests(unittest.TestCase):
                 (200, {"object": {"type": "commit", "sha": old_sha}}),
                 (200, {"object": {"type": "commit", "sha": source_sha}}),
             ],
-        ), patch.object(publisher.subprocess, "run") as run:
+        ) as json_request, patch.object(publisher.subprocess, "run") as run:
             run.side_effect = [
                 subprocess.CompletedProcess(["git"], 0, source_sha, ""),
                 subprocess.CompletedProcess(["git"], 0, "", ""),
@@ -351,6 +351,19 @@ class RollingReleaseTests(unittest.TestCase):
         self.assertIn("--no-follow-tags", commands[4])
         self.assertTrue(commands[4][-1].endswith(f"{source_sha}:refs/heads/main"))
         self.assertNotIn("fake-personal-token", " ".join(" ".join(cmd) for cmd in commands))
+        self.assertEqual(
+            [call.args for call in json_request.call_args_list],
+            [
+                (
+                    "GET",
+                    "/repos/aegorsuch/atak-plugin-weartak-companion/git/ref/heads/main",
+                ),
+                (
+                    "GET",
+                    "/repos/aegorsuch/atak-plugin-weartak-companion/git/ref/heads/main",
+                ),
+            ],
+        )
 
     def test_personal_main_ref_failure_reports_status_codes_only(self) -> None:
         source_sha = self.env["CI_COMMIT_SHA"]
