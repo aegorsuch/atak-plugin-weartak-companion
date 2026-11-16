@@ -404,9 +404,7 @@ class GitLabClient(ApiClient):
 
 
 def require_environment(env: dict[str, str], *, personal: bool = False) -> dict[str, str]:
-    token_name = (
-        "GITHUB_PERSONAL_RELEASE_TOKEN" if personal else "GITHUB_RELEASE_TOKEN"
-    )
+    token_name = "GITHUB_RELEASE_TOKEN"
     required = (
         token_name,
         "GITHUB_REPOSITORY",
@@ -461,10 +459,7 @@ def release_destination(
         if personal
         else EXPECTED_GITHUB_REPOSITORY
     )
-    token_name = (
-        "GITHUB_PERSONAL_RELEASE_TOKEN" if personal else "GITHUB_RELEASE_TOKEN"
-    )
-    return repository, env[token_name]
+    return repository, env["GITHUB_RELEASE_TOKEN"]
 
 
 def select_signed_apk(project_dir: Path) -> Path:

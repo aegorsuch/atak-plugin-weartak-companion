@@ -182,21 +182,21 @@ class RollingReleaseTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-    def test_release_writes_use_current_repository_name_without_redirects(self) -> None:
-        self.assertEqual(
-            publisher.EXPECTED_GITHUB_REPOSITORY,
-            "Ascent-Integrated-Tech/atak-plugin-weartak-companion",
-        )
+    def test_release_writes_use_personal_repository_without_redirects(self) -> None:
         config = (Path(__file__).resolve().parents[2] / ".gitlab-ci.yml").read_text()
         self.assertIn(
-            f"GITHUB_REPOSITORY: {publisher.EXPECTED_GITHUB_REPOSITORY}", config
+            f"GITHUB_REPOSITORY: {publisher.EXPECTED_PERSONAL_GITHUB_REPOSITORY}",
+            config,
         )
-        github = publisher.GitHubClient(publisher.EXPECTED_GITHUB_REPOSITORY, "test-token")
+        self.assertNotIn("Ascent-Integrated-Tech", config)
+        github = publisher.GitHubClient(
+            publisher.EXPECTED_PERSONAL_GITHUB_REPOSITORY, "test-token"
+        )
         with patch.object(github, "json_request", return_value=(200, {})) as request:
             github.update_release_body(77, "verified notes")
         self.assertEqual(request.call_args.args, (
             "PATCH",
-            "/repos/Ascent-Integrated-Tech/atak-plugin-weartak-companion/releases/77",
+            "/repos/aegorsuch/atak-plugin-weartak-companion/releases/77",
         ))
         self.assertEqual(
             request.call_args.kwargs["body"],
@@ -219,7 +219,7 @@ class RollingReleaseTests(unittest.TestCase):
             request.call_args.args,
             (
                 "GET",
-                "/repos/Ascent-Integrated-Tech/atak-plugin-weartak-companion/branches/main",
+                "/repos/aegorsuch/atak-plugin-weartak-companion/branches/main",
             ),
         )
 
@@ -237,7 +237,7 @@ class RollingReleaseTests(unittest.TestCase):
         request = urlopen.call_args.args[0]
         self.assertEqual(request.headers["Authorization"], "Bearer fixture-token")
 
-    def test_org_and_personal_publishers_use_separate_credentials_and_targets(self) -> None:
+    def test_personal_publisher_uses_existing_credential_and_allowlisted_target(self) -> None:
         self.assertEqual(
             publisher.require_environment(self.env)["GITHUB_RELEASE_TOKEN"],
             "not-a-real-token",
@@ -247,53 +247,59 @@ class RollingReleaseTests(unittest.TestCase):
             (publisher.EXPECTED_GITHUB_REPOSITORY, "not-a-real-token"),
         )
         personal_env = dict(self.env)
-        personal_env.pop("GITHUB_RELEASE_TOKEN")
         personal_env.update(
             GITHUB_REPOSITORY=publisher.EXPECTED_PERSONAL_GITHUB_REPOSITORY,
             GITHUB_PERSONAL_REPOSITORY=publisher.EXPECTED_PERSONAL_GITHUB_REPOSITORY,
-            GITHUB_PERSONAL_RELEASE_TOKEN="not-a-real-personal-token",
+            GITHUB_PERSONAL_RELEASE_TOKEN="unused-stale-token",
         )
         self.assertEqual(
             publisher.require_environment(personal_env, personal=True)[
-                "GITHUB_PERSONAL_RELEASE_TOKEN"
+                "GITHUB_RELEASE_TOKEN"
             ],
-            "not-a-real-personal-token",
+            "not-a-real-token",
         )
         self.assertEqual(
             publisher.release_destination(personal_env, personal=True),
             (
                 publisher.EXPECTED_PERSONAL_GITHUB_REPOSITORY,
-                "not-a-real-personal-token",
+                "not-a-real-token",
             ),
         )
 
-    def test_personal_publisher_requires_its_own_token_and_allowlisted_target(self) -> None:
+    def test_personal_publisher_requires_existing_credential_and_allowlisted_target(self) -> None:
         personal_env = dict(self.env)
         personal_env.pop("GITHUB_RELEASE_TOKEN")
         personal_env.update(
             GITHUB_REPOSITORY=publisher.EXPECTED_PERSONAL_GITHUB_REPOSITORY,
             GITHUB_PERSONAL_REPOSITORY=publisher.EXPECTED_PERSONAL_GITHUB_REPOSITORY,
+            GITHUB_PERSONAL_RELEASE_TOKEN="unused-stale-token",
         )
         with self.assertRaisesRegex(
-            publisher.PublishError, "GITHUB_PERSONAL_RELEASE_TOKEN"
+            publisher.PublishError, "GITHUB_RELEASE_TOKEN"
         ):
             publisher.require_environment(personal_env, personal=True)
-        personal_env["GITHUB_PERSONAL_RELEASE_TOKEN"] = "not-a-real-personal-token"
+        personal_env["GITHUB_RELEASE_TOKEN"] = "not-a-real-token"
         personal_env["GITHUB_PERSONAL_REPOSITORY"] = "attacker/example"
         with self.assertRaisesRegex(
             publisher.PublishError, "GITHUB_PERSONAL_REPOSITORY"
         ):
             publisher.require_environment(personal_env, personal=True)
 
-    def test_ci_scopes_personal_token_to_separate_publisher_environment(self) -> None:
+    def test_ci_publishes_only_to_personal_repo_with_protected_main_rules(self) -> None:
         config = (Path(__file__).resolve().parents[2] / ".gitlab-ci.yml").read_text()
         self.assertIn("publish_github_personal_rolling_release:", config)
         self.assertIn(
             "environment:\n    name: github-personal-rolling-release", config
         )
+        self.assertIn(
+            "GITHUB_REPOSITORY: aegorsuch/atak-plugin-weartak-companion", config
+        )
         self.assertIn("python3 scripts/publish_github_release.py --personal", config)
         self.assertIn('$PUBLISH_PERSONAL_GITHUB == "true"', config)
         self.assertIn('$CI_COMMIT_BRANCH == "main"', config)
+        self.assertIn('$CI_COMMIT_REF_PROTECTED == "true"', config)
+        self.assertNotIn("publish_github_rolling_release:", config)
+        self.assertNotIn("GITHUB_PERSONAL_RELEASE_TOKEN", config)
         self.assertNotIn('$CI_COMMIT_BRANCH == "develop"', config)
 
     def test_personal_publication_fails_closed_when_main_mirror_is_stale(self) -> None:
