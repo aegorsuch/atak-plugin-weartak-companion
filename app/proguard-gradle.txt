@@ -102,3 +102,6 @@
 -dontwarn com.google.errorprone.annotations.MustBeClosed
 -dontwarn io.opentelemetry.api.incubator.**
 -dontwarn org.osgi.annotation.bundle.Export
+
+# Ditto's C interop resolves companion objects through Kotlin reflection.
+-keep class com.ditto.** { *; }
