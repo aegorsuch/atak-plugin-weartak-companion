@@ -59,7 +59,9 @@ not enabled by this project pipeline. It uses the existing masked and protected
 `GITHUB_RELEASE_TOKEN` CI/CD variable. Do not copy credentials into source or
 logs, rotate the token, or broaden its permissions to address a failed access
 check. The publisher checks access to the personal repository before making
-any release mutation.
+any release mutation. If that check fails, it reports only HTTP status codes
+for authenticated identity, repository visibility, and the `main` ref; response
+bodies, headers, token values, and identity details are not logged.
 
 To enable the personal destination:
 

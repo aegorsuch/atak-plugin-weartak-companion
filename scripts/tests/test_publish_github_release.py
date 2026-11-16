@@ -1,8 +1,10 @@
 import hashlib
+import io
 import subprocess
 import tempfile
 import unittest
 import zipfile
+from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -349,6 +351,50 @@ class RollingReleaseTests(unittest.TestCase):
         self.assertIn("--no-follow-tags", commands[4])
         self.assertTrue(commands[4][-1].endswith(f"{source_sha}:refs/heads/main"))
         self.assertNotIn("fake-personal-token", " ".join(" ".join(cmd) for cmd in commands))
+
+    def test_personal_main_ref_failure_reports_status_codes_only(self) -> None:
+        source_sha = self.env["CI_COMMIT_SHA"]
+        github = publisher.GitHubClient(
+            publisher.EXPECTED_PERSONAL_GITHUB_REPOSITORY, "fake-personal-token"
+        )
+        output = io.StringIO()
+        with patch.object(
+            github, "json_request", return_value=(404, {"message": "private response"})
+        ), patch.object(
+            github,
+            "request",
+            side_effect=[
+                (200, {"X-Private-Header": "private header"}, b'{"login":"private user"}'),
+                (404, {}, b'{"message":"private response"}'),
+                (404, {}, b'{"message":"private response"}'),
+            ],
+        ) as request, patch.object(
+            publisher.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(["git"], 0, source_sha, ""),
+        ), redirect_stdout(output):
+            with self.assertRaisesRegex(
+                publisher.PublishError, "Could not inspect personal main ref"
+            ):
+                github.sync_personal_main(source_sha, self.directory)
+
+        self.assertEqual(
+            output.getvalue(),
+            "GitHub read-only access statuses (HTTP only): "
+            "identity=200 repository=404 main_ref=404\n",
+        )
+        self.assertNotIn("fake-personal-token", output.getvalue())
+        self.assertNotIn("private header", output.getvalue())
+        self.assertNotIn("private response", output.getvalue())
+        self.assertNotIn("private user", output.getvalue())
+        self.assertEqual(
+            [call.args[1] for call in request.call_args_list],
+            [
+                "https://api.github.com/user",
+                "https://api.github.com/repos/aegorsuch/atak-plugin-weartak-companion",
+                "https://api.github.com/repos/aegorsuch/atak-plugin-weartak-companion/git/ref/heads/main",
+            ],
+        )
 
     def test_personal_main_sync_rejects_divergence_without_push(self) -> None:
         source_sha = self.env["CI_COMMIT_SHA"]
