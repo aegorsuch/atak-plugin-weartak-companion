@@ -233,7 +233,7 @@ class GitHubClient(ApiClient):
         if git("rev-parse", "HEAD") != source_sha:
             raise PublishError("CI checkout does not match the publishing pipeline source.")
 
-        ref_path = "/git/ref/heads/main"
+        ref_path = f"{self.repository_path}/git/ref/heads/main"
         status, remote = self.json_request("GET", ref_path)
         if status != 200 or not isinstance(remote, dict):
             self.report_personal_access_statuses()
