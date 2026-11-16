@@ -23,6 +23,7 @@ field_report_regressions:
         "$main/PhoneFixValidator.java" "$main/PhonePosition.java" \
         "$main/PhonePositionActions.java" "$main/WatchMessageIds.java" \
         "$main/CompanionDiagnosticLogger.java" \
+        "$main/DittoCommunityLicense.java" \
         "$main/GarminMarkerDelete.java" \
         "$main/LegacyPliCot.java" "$main/WatchSelfStatus.java" \
         "$main/SelfStatusRemarks.java" "$main/SelfPliAugmenter.java" \
@@ -38,6 +39,7 @@ field_report_regressions:
         "$tests/AtakUnitPreferencesTest.java" "$tests/SettingsPayloadBuilderTest.java" \
         "$tests/PhonePositionActionsTest.java" "$tests/WatchMessageIdsTest.java" \
         "$tests/CompanionDiagnosticLoggerTest.java" \
+        "$tests/DittoCommunityLicenseTest.java" "$tests/CompanionPaneLayoutTest.java" \
         "$tests/GarminMarkerDeleteTest.java" \
         "$tests/LegacyPliCotTest.java" "$tests/WatchSelfStatusTest.java" "$tests/SelfPliAugmenterTest.java" \
         "$tests/PhoneMarkerRelayTest.java" "$tests/PhoneUserLifetimeWarningsTest.java" \
@@ -54,6 +56,7 @@ field_report_regressions:
         com.weartak.atak.weartak_companion.plugin.PhonePositionActionsTest \
         com.weartak.atak.weartak_companion.plugin.WatchMessageIdsTest \
         com.weartak.atak.weartak_companion.plugin.CompanionDiagnosticLoggerTest \
+        com.weartak.atak.weartak_companion.plugin.DittoCommunityLicenseTest \
         com.weartak.atak.weartak_companion.plugin.GarminMarkerDeleteTest \
         com.weartak.atak.weartak_companion.plugin.LegacyPliCotTest \
         com.weartak.atak.weartak_companion.plugin.WatchSelfStatusTest \
@@ -69,6 +72,8 @@ field_report_regressions:
         com.weartak.atak.weartak_companion.plugin.SourceCotTimingTest \
         com.weartak.atak.weartak_companion.plugin.GarminEntityAdapterTest \
         com.weartak.atak.weartak_companion.plugin.GarminEntityForwarderTest | tee field-report-regressions.log
+      (cd app && java -cp '../.regression-classes:../.regression-libs/*' org.junit.runner.JUnitCore \
+        com.weartak.atak.weartak_companion.plugin.CompanionPaneLayoutTest) | tee -a field-report-regressions.log
   artifacts:
     when: always
     paths:

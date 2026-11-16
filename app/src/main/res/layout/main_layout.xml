@@ -309,16 +309,34 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Ditto ESH"
+                android:text="Ditto"
                 android:textStyle="bold"
                 android:textSize="15sp"
                 android:paddingBottom="4dp" />
+
+            <RadioGroup
+                android:id="@+id/dittoMode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:checkedButton="@id/dittoCommunityMode">
+                <RadioButton
+                    android:id="@+id/dittoCommunityMode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Community peer-to-peer" />
+                <RadioButton
+                    android:id="@+id/dittoEshMode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="ESH server" />
+            </RadioGroup>
 
             <EditText
                 android:id="@+id/dittoDatabaseId"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="Ditto database ID"
+                android:visibility="gone"
                 android:inputType="text"
                 android:singleLine="true" />
 
@@ -327,6 +345,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="ESH server URL"
+                android:visibility="gone"
                 android:inputType="textUri"
                 android:singleLine="true" />
 
@@ -335,6 +354,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="Ditto development token"
+                android:visibility="gone"
                 android:inputType="textPassword"
                 android:singleLine="true" />
 
@@ -344,7 +364,7 @@
                 android:layout_height="wrap_content"
                 android:minHeight="48dp"
                 android:textAllCaps="false"
-                android:text="Connect to ESH" />
+                android:text="Start Community sync" />
 
             <TextView
                 android:id="@+id/dittoConnectionStatus"

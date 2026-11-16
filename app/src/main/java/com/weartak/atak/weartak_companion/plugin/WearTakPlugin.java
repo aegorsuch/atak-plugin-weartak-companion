@@ -29,6 +29,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.LinearLayout;
+import android.widget.RadioGroup;
 import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
@@ -138,6 +139,8 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
     private EditText dittoDatabaseIdET;
     private EditText dittoServerUrlET;
     private EditText dittoAuthTokenET;
+    private RadioGroup dittoMode;
+    private boolean dittoCommunityMode = true;
     private Button dittoConnectButton;
     private TextView dittoConnectionStatusTV;
     private String dittoDatabaseIdValue = "";
@@ -1745,18 +1748,29 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
     private void updateDittoConnectionStatus(String status) {
         if (dittoConnectionStatusTV != null) dittoConnectionStatusTV.setText(status);
         if (dittoConnectButton != null) {
+            boolean active = DittoEshConnection.isSyncActive();
             dittoConnectButton.setEnabled(!dittoSyncStarting);
-            dittoConnectButton.setText(DittoEshConnection.isSyncActive()
-                    ? "Disconnect" : "Connect to ESH");
+            dittoConnectButton.setText(active ? "Disconnect"
+                    : dittoCommunityMode ? "Start Community sync" : "Connect to ESH");
+            dittoMode.findViewById(R.id.dittoCommunityMode).setEnabled(!active && !dittoSyncStarting);
+            dittoMode.findViewById(R.id.dittoEshMode).setEnabled(!active && !dittoSyncStarting);
         }
+    }
+
+    private void updateDittoMode() {
+        int visibility = dittoCommunityMode ? View.GONE : View.VISIBLE;
+        dittoDatabaseIdET.setVisibility(visibility);
+        dittoServerUrlET.setVisibility(visibility);
+        dittoAuthTokenET.setVisibility(visibility);
+        updateDittoConnectionStatus("Not connected");
     }
 
     private void onDittoConnectionClicked() {
         if (!dittoPluginStarted || dittoSyncStarting) return;
         if (DittoEshConnection.isSyncActive()) {
             dittoSyncStarting = true;
-            updateDittoConnectionStatus("Disconnecting from Ditto ESH...");
-            final long uiGeneration = dittoUiGeneration.get();
+            updateDittoConnectionStatus("Disconnecting from Ditto...");
+            final long uiGeneration = dittoUiGeneration.incrementAndGet();
             new Thread(() -> {
                 try {
                     DittoEshConnection.disconnect();
@@ -1783,8 +1797,8 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
         dittoDatabaseIdValue = dittoDatabaseIdET.getText().toString().trim();
         dittoServerUrlValue = dittoServerUrlET.getText().toString().trim();
         String token = dittoAuthTokenET.getText().toString();
-        if (dittoDatabaseIdValue.isEmpty() || dittoServerUrlValue.isEmpty()
-                || token.trim().isEmpty()) {
+        if (!dittoCommunityMode && (dittoDatabaseIdValue.isEmpty() || dittoServerUrlValue.isEmpty()
+                || token.trim().isEmpty())) {
             updateDittoConnectionStatus("Enter database ID, ESH server URL, and development token.");
             return;
         }
@@ -1795,14 +1809,14 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
         updateDittoConnectionStatus("Starting Ditto sync...");
         final String databaseId = dittoDatabaseIdValue;
         final String serverUrl = dittoServerUrlValue;
+        final boolean community = dittoCommunityMode;
         final MapView mapView = MapView.getMapView();
         final Context context = mapView == null ? pluginContext : mapView.getContext();
         final long uiGeneration = dittoUiGeneration.get();
         dittoAuthTokenET.setText("");
         new Thread(() -> {
             try {
-                DittoEshConnection.connect(context, databaseId, serverUrl, token,
-                        new DittoEshListener() {
+                DittoEshListener listener = new DittoEshListener() {
                             @Override public void onCollectionSnapshot(
                                     String collection, List<String> documents) {
                                 processDittoSnapshot(collection, documents, uiGeneration);
@@ -1827,7 +1841,12 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
                                     });
                                 }
                             }
-                        });
+                        };
+                if (community) {
+                    DittoEshConnection.connectCommunity(context, listener);
+                } else {
+                    DittoEshConnection.connect(context, databaseId, serverUrl, token, listener);
+                }
                 runOnMain(() -> {
                     if (!isCurrentDittoUi(uiGeneration)) return;
                     dittoSyncStarting = false;
@@ -1841,7 +1860,9 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
                 runOnMain(() -> {
                     if (!isCurrentDittoUi(uiGeneration)) return;
                     dittoSyncStarting = false;
-                    updateDittoConnectionStatus(dittoFailureMessage(category));
+                    updateDittoConnectionStatus(community
+                            ? "Community sync failed; check the bundled license and permissions."
+                            : dittoFailureMessage(category));
                 });
             }
         }, "WTK-Ditto-connect").start();
@@ -1852,6 +1873,7 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
     }
 
     private String dittoStatusText() {
+        if (dittoCommunityMode) return "Community sync active; peer connectivity not confirmed.";
         return dittoEshConnected
                 ? "Connected to Ditto ESH."
                 : "Sync active; ESH connectivity not confirmed.";
@@ -2632,8 +2654,18 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
             dittoAuthTokenET = paneView.findViewById(R.id.dittoAuthToken);
             dittoConnectButton = paneView.findViewById(R.id.dittoConnectButton);
             dittoConnectionStatusTV = paneView.findViewById(R.id.dittoConnectionStatus);
+            dittoMode = paneView.findViewById(R.id.dittoMode);
             dittoDatabaseIdET.setText(dittoDatabaseIdValue);
             dittoServerUrlET.setText(dittoServerUrlValue);
+            dittoMode.check(dittoCommunityMode ? R.id.dittoCommunityMode : R.id.dittoEshMode);
+            dittoMode.setOnCheckedChangeListener((group, checkedId) -> {
+                dittoCommunityMode = checkedId == R.id.dittoCommunityMode;
+                updateDittoMode();
+            });
+            int dittoVisibility = dittoCommunityMode ? View.GONE : View.VISIBLE;
+            dittoDatabaseIdET.setVisibility(dittoVisibility);
+            dittoServerUrlET.setVisibility(dittoVisibility);
+            dittoAuthTokenET.setVisibility(dittoVisibility);
             dittoConnectButton.setOnClickListener(v -> onDittoConnectionClicked());
             updateDittoConnectionStatus(DittoEshConnection.isSyncActive()
                     ? dittoStatusText() : "Not connected");
