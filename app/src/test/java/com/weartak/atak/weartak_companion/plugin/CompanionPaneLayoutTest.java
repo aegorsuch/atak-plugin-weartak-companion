@@ -63,6 +63,9 @@ public class CompanionPaneLayoutTest {
         }
         assertEquals("textPassword", byId(document, "dittoAuthToken")
                 .getAttribute("android:inputType"));
+        assertEquals("@id/dittoCommunityMode", byId(document, "dittoMode")
+                .getAttribute("android:checkedButton"));
+        assertEquals("gone", byId(document, "dittoDatabaseId").getAttribute("android:visibility"));
     }
 
     @Test public void smallLogGlyphsRetainAccessibleTouchTargets() throws Exception {

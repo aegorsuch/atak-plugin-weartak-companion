@@ -10,7 +10,8 @@ the Garmin Connect IQ relay and an exclusive three-mode connection selector.
 The optional Garmin Connect IQ
 transport uses Garmin Connect Mobile on the phone rather than the
 Samsung/Wear OS BLE connection.
-The plugin also includes an optional Ditto SDK connection to a Ditto ESH.
+The plugin also supports Ditto Community peer-to-peer sync and an optional
+Ditto ESH connection.
 
 The phone-to-WearOS point relay forwards all non-user `a-*` atoms (including
 aircraft, surface and detailed ground types) plus SPI `b-m-p-s-p-i`, preserving
@@ -94,9 +95,22 @@ or release packaging/signing.
 
 ## Developer Notes
 
-### Ditto ESH connection
+### Ditto connections
 
-The device panel accepts a Ditto database ID, ESH server URL, and development
+Community peer-to-peer is the default Ditto mode. Builds need the authorized
+`dittoCommunityIdentity` Gradle property, provided securely by the build
+environment; without it Community sync reports a missing license. The value
+is bundled in the APK and must not be committed or printed in diagnostics.
+Release APK/AAB builds require the protected
+`ORG_GRADLE_PROJECT_dittoCommunityIdentity` environment variable (or equivalent
+Gradle property) and fail when absent. Debug builds and MR tests can run without
+it; those builds cannot start Community sync until supplied a license.
+Anyone with the APK can extract its shared key and join the shared mesh, so
+distribute the APK only to authorized users. Community sync uses the PDL's app
+ID, shared key and offline license token; it does not authenticate to ESH.
+Starting sync does not establish that a peer is connected.
+
+Select ESH server to enter a Ditto database ID, ESH server URL, and development
 token, then starts Ditto sync in the plugin. Companion does not persist or log
 the token; it clears the input after use. Sync stops when the plugin stops.
 The local replica uses an app-private, database-ID-scoped directory to avoid

@@ -52,7 +52,15 @@ object DittoEshConnection {
         token: String,
         listener: DittoEshListener
     ) = synchronized(connectLock) {
-        connectSerially(context, databaseId, serverUrl, token, listener)
+        connectSerially(context, databaseId, serverUrl, token, null, listener)
+    }
+
+    @JvmStatic
+    fun connectCommunity(context: Context, listener: DittoEshListener) = synchronized(connectLock) {
+        val license = DittoCommunityLicense.parse(
+            BuildConfig.DITTO_COMMUNITY_IDENTITY, System.currentTimeMillis()
+        )
+        connectSerially(context, license.appId, "", "", license, listener)
     }
 
     private fun connectSerially(
@@ -60,11 +68,14 @@ object DittoEshConnection {
         databaseId: String,
         serverUrl: String,
         token: String,
+        community: DittoCommunityLicense?,
         listener: DittoEshListener
     ) {
         require(databaseId.isNotBlank()) { "Ditto database ID is required" }
-        require(serverUrl.isNotBlank()) { "ESH server URL is required" }
-        require(token.isNotBlank()) { "Ditto development token is required" }
+        if (community == null) {
+            require(serverUrl.isNotBlank()) { "ESH server URL is required" }
+            require(token.isNotBlank()) { "Ditto development token is required" }
+        }
 
         val operation = synchronized(lock) {
             check(sessionEnabled) { "Ditto connection is unavailable while plugin is stopped" }
@@ -86,28 +97,27 @@ object DittoEshConnection {
         val normalizedDatabaseId = databaseId.trim()
         val config = DittoConfig(
             databaseId = normalizedDatabaseId,
-            persistenceDirectory = persistenceDirectory(context, normalizedDatabaseId),
-            connect = DittoConfig.Connect.Server(url = serverUrl.trim())
+            persistenceDirectory = persistenceDirectory(context,
+                if (community == null) normalizedDatabaseId else "community:$normalizedDatabaseId"),
+            connect = if (community == null) DittoConfig.Connect.Server(url = serverUrl.trim())
+                else DittoConfig.Connect.SmallPeersOnly(community.sharedKey)
         )
         val ditto = DittoFactory.create(config)
-        val auth = ditto.auth
-        if (auth == null) {
-            runBlocking { ditto.close() }
-            throw IllegalStateException("Ditto authentication is unavailable")
-        }
 
         val nextSubscriptions = mutableListOf<AutoCloseable>()
         val nextObservers = mutableListOf<AutoCloseable>()
         try {
-            auth.expirationHandler = { dittoInstance, _ ->
-                dittoInstance.auth?.login(
-                    token,
-                    DittoAuthenticationProvider.development()
-                )
-            }
+            if (community != null) {
+                ditto.setOfflineOnlyLicenseToken(community.token)
+            } else {
+                val auth = checkNotNull(ditto.auth) { "Ditto authentication is unavailable" }
+                auth.expirationHandler = { dittoInstance, _ ->
+                    dittoInstance.auth?.login(token, DittoAuthenticationProvider.development())
+                }
 
-            runBlocking {
-                auth.login(token, DittoAuthenticationProvider.development())
+                runBlocking {
+                    auth.login(token, DittoAuthenticationProvider.development())
+                }
             }
 
             COLLECTIONS.forEach { collection ->
@@ -126,7 +136,7 @@ object DittoEshConnection {
                 }
             }
 
-            try {
+            if (community == null) try {
                 nextObservers += ditto.store.registerObserver(
                     "SELECT * FROM system:data_sync_info"
                 ) { result ->

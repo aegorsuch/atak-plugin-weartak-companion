@@ -254,6 +254,23 @@ android {
     defaultConfig {
         minSdkVersion 24
         targetSdkVersion 36
+        def communityIdentity = providers.gradleProperty('dittoCommunityIdentity').orElse('').get().trim()
+        if (communityIdentity.startsWith('"') && communityIdentity.endsWith('"')
+                && communityIdentity.length() >= 2) {
+            communityIdentity = communityIdentity.substring(1, communityIdentity.length() - 1)
+        }
+        if (!(communityIdentity ==~ /[A-Za-z0-9_\-=]*/)) {
+            throw new GradleException('dittoCommunityIdentity must be URL-safe Base64')
+        }
+        buildConfigField 'String', 'DITTO_COMMUNITY_IDENTITY', "\"${communityIdentity}\""
+        gradle.taskGraph.whenReady { graph ->
+            if (communityIdentity.isEmpty() && graph.allTasks.any { task ->
+                task.project == project &&
+                        task.name ==~ /(?:assemble|bundle|package).*Release(?:Bundle)?/
+            }) {
+                throw new GradleException('Release builds require the protected dittoCommunityIdentity Gradle property')
+            }
+        }
 
         def runTasks = gradle.startParameter.taskNames
         if(runTasks.toString().contains('bundle')) {
