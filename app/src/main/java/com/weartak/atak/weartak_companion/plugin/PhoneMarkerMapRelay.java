@@ -21,6 +21,7 @@ import org.json.JSONException;
 
 final class PhoneMarkerMapRelay {
     static final String WATCH_IMPORT = "weartak_watch_marker";
+    static final String DITTO_IMPORT = "weartak_ditto_marker";
     private static final String TAG = "WTK/PointRelay";
     private static final long ACK_TIMEOUT_MS = 10_000L;
     private static final String[] EVENTS = {MapEvent.ITEM_ADDED, MapEvent.ITEM_REFRESH,
@@ -107,6 +108,9 @@ final class PhoneMarkerMapRelay {
             } catch (RuntimeException e) {
                 LogX.e(TAG, "Cannot snapshot imported watch marker", e);
             }
+        }
+        if (event.getExtras() != null && event.getExtras().getBoolean(DITTO_IMPORT, false)) {
+            item.setMetaBoolean(DITTO_IMPORT, true);
         }
         changed(item);
     }

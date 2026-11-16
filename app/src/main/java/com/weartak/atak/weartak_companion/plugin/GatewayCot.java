@@ -82,6 +82,16 @@ final class GatewayCot {
         return event;
     }
 
+    static CotEvent validateDitto(String xml) {
+        if (xml == null || xml.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 256 * 1024)
+            throw new IllegalArgumentException("Ditto CoT exceeds 256 KiB");
+        CotEvent event = CotEvent.parse(xml);
+        if (event == null || !event.isValid() || !supportedType(event.getType()))
+            throw new IllegalArgumentException("Unsupported Ditto CoT document");
+        if (isChatType(event.getType())) readChat(xml);
+        return event;
+    }
+
     static void validatePeer(String xml, String peerUid) {
         CotEvent event = validate(xml);
         String type = event.getType();
