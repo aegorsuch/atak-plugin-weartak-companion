@@ -121,7 +121,7 @@ release_build_and_sign:
   variables:
     variants: "civ"
   rules:
-    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
 
 publish_github_rolling_release:
   stage: .post
@@ -146,7 +146,7 @@ publish_github_rolling_release:
   script:
     - python3 scripts/publish_github_release.py
   rules:
-    - if: '$CI_SERVER_HOST == "git.tak.gov" && $CI_PROJECT_PATH == "aegorsuch/atak-plugin-weartak-companion" && $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED == "true"'
+    - if: '$CI_SERVER_HOST == "git.tak.gov" && $CI_PROJECT_PATH == "aegorsuch/atak-plugin-weartak-companion" && $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED == "true"'
 
 publish_github_personal_rolling_release:
   stage: .post
@@ -174,4 +174,4 @@ publish_github_personal_rolling_release:
   script:
     - python3 scripts/publish_github_release.py --personal
   rules:
-    - if: '$CI_SERVER_HOST == "git.tak.gov" && $CI_PROJECT_PATH == "aegorsuch/atak-plugin-weartak-companion" && $CI_COMMIT_BRANCH == "develop" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED == "true" && $PUBLISH_PERSONAL_GITHUB == "true"'
+    - if: '$CI_SERVER_HOST == "git.tak.gov" && $CI_PROJECT_PATH == "aegorsuch/atak-plugin-weartak-companion" && $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED == "true" && $PUBLISH_PERSONAL_GITHUB == "true"'

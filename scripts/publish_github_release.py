@@ -22,7 +22,7 @@ from typing import Any
 
 EXPECTED_PROJECT = "aegorsuch/atak-plugin-weartak-companion"
 EXPECTED_SERVER = "git.tak.gov"
-EXPECTED_BRANCH = "develop"
+EXPECTED_BRANCH = "main"
 EXPECTED_GITHUB_REPOSITORY = "Ascent-Integrated-Tech/atak-plugin-weartak-companion"
 EXPECTED_PERSONAL_GITHUB_REPOSITORY = "aegorsuch/atak-plugin-weartak-companion"
 RELEASE_TAG = "tak-gov-ci-cd-pipeline"
@@ -136,12 +136,12 @@ class GitHubClient(ApiClient):
         actual_sha = result.get("commit", {}).get("sha")
         if actual_sha != expected_sha:
             raise PublishError(
-                f"Personal GitHub develop mirror is stale: expected {expected_sha}, "
-                f"found {actual_sha or 'no branch SHA'}. Non-force sync canonical develop "
+                f"Personal GitHub main mirror is stale: expected {expected_sha}, "
+                f"found {actual_sha or 'no branch SHA'}. Non-force sync canonical main "
                 "to the personal mirror before publication."
             )
 
-    def sync_personal_develop(self, source_sha: str, project_dir: Path) -> None:
+    def sync_personal_main(self, source_sha: str, project_dir: Path) -> None:
         if self.repository != EXPECTED_PERSONAL_GITHUB_REPOSITORY:
             raise PublishError("Automatic source synchronization is personal-mirror only.")
 
@@ -205,11 +205,11 @@ class GitHubClient(ApiClient):
                 )
             except OSError as error:
                 raise PublishError(
-                    "Git is unavailable for safe personal develop synchronization"
+                    "Git is unavailable for safe personal main synchronization"
                 ) from error
             if check and result.returncode:
                 raise PublishError(
-                    "Personal develop synchronization failed its source, ancestry, "
+                    "Personal main synchronization failed its source, ancestry, "
                     "or non-force push check. No force, tag changes, or ref deletion "
                     "will be attempted."
                 )
@@ -218,11 +218,11 @@ class GitHubClient(ApiClient):
         if git("rev-parse", "HEAD") != source_sha:
             raise PublishError("CI checkout does not match the publishing pipeline source.")
 
-        ref_path = "/git/ref/heads/develop"
+        ref_path = "/git/ref/heads/main"
         status, remote = self.json_request("GET", ref_path)
         if status != 200 or not isinstance(remote, dict):
             raise PublishError(
-                f"Could not inspect personal develop ref before sync (HTTP {status})"
+                f"Could not inspect personal main ref before sync (HTTP {status})"
             )
         remote_object = remote.get("object", {})
         remote_sha = remote_object.get("sha")
@@ -231,7 +231,7 @@ class GitHubClient(ApiClient):
             or not isinstance(remote_sha, str)
             or not re.fullmatch(r"[0-9a-f]{40}", remote_sha)
         ):
-            raise PublishError("Personal develop must already point to a verified commit.")
+            raise PublishError("Personal main must already point to a verified commit.")
 
         if remote_sha != source_sha:
             repository_url = f"https://github.com/{EXPECTED_PERSONAL_GITHUB_REPOSITORY}.git"
@@ -240,11 +240,11 @@ class GitHubClient(ApiClient):
                 "--no-tags",
                 "--no-recurse-submodules",
                 repository_url,
-                "refs/heads/develop",
+                "refs/heads/main",
             )
             if git("rev-parse", "FETCH_HEAD") != remote_sha:
                 raise PublishError(
-                    "Personal develop changed during source inspection; refusing update."
+                    "Personal main changed during source inspection; refusing update."
                 )
             git("merge-base", "--is-ancestor", remote_sha, source_sha)
             git(
@@ -252,17 +252,17 @@ class GitHubClient(ApiClient):
                 "--no-follow-tags",
                 "--recurse-submodules=no",
                 repository_url,
-                f"{source_sha}:refs/heads/develop",
+                f"{source_sha}:refs/heads/main",
             )
 
         status, confirmed = self.json_request("GET", ref_path)
         if status != 200 or not isinstance(confirmed, dict):
             raise PublishError(
-                f"Could not verify personal develop after sync (HTTP {status})"
+                f"Could not verify personal main after sync (HTTP {status})"
             )
         if confirmed.get("object", {}).get("sha") != source_sha:
             raise PublishError(
-                "Personal develop readback differs from the canonical pipeline source."
+                "Personal main readback differs from the canonical pipeline source."
             )
 
     def create_release(self) -> dict[str, Any]:
@@ -386,20 +386,20 @@ class GitLabClient(ApiClient):
         super().__init__(api_url, job_token, "JOB-TOKEN")
         self.project_path = f"/projects/{urllib.parse.quote(project_id, safe='')}"
 
-    def develop_branch(self) -> dict[str, Any]:
+    def main_branch(self) -> dict[str, Any]:
         query = urllib.parse.urlencode({"search": EXPECTED_BRANCH, "per_page": "100"})
         status, branches = self.json_request(
             "GET", f"{self.project_path}/repository/branches?{query}"
         )
         if status != 200 or not isinstance(branches, list):
             raise PublishError(
-                f"Could not identify canonical develop branch tip (HTTP {status})"
+                f"Could not identify canonical main branch tip (HTTP {status})"
             )
         branch = next(
             (item for item in branches if item.get("name") == EXPECTED_BRANCH), None
         )
         if branch is None:
-            raise PublishError("Canonical develop branch was not returned by GitLab")
+            raise PublishError("Canonical main branch was not returned by GitLab")
         return branch
 
 
@@ -574,12 +574,12 @@ def verify_release_order(release: dict[str, Any], pipeline_id: str) -> None:
 
 
 def verify_source_pipeline(gitlab: GitLabClient, env: dict[str, str]) -> None:
-    branch = gitlab.develop_branch()
+    branch = gitlab.main_branch()
     commit = branch.get("commit", {})
     if branch.get("name") != EXPECTED_BRANCH or commit.get("id") != env["CI_COMMIT_SHA"]:
         raise PublishError(
             f"Skipping stale pipeline {env['CI_PIPELINE_ID']}; "
-            "canonical develop has advanced to a different commit"
+            "canonical main has advanced to a different commit"
         )
 
 
@@ -595,13 +595,13 @@ def release_description(
         [
             RELEASE_OWNERSHIP_MARKER,
             "",
-            "Automatically published stable ATAK Companion CIV develop-channel build.",
+            "Automatically published stable ATAK Companion CIV main-channel build.",
             "",
             f"- APK version: **{apk_version}** (versionCode **{version_code}**)",
             f"- Build: GitLab pipeline **{pipeline_id}**"
             + (f" (project pipeline **{pipeline_iid}**)" if pipeline_iid else ""),
             f"- Pipeline: {pipeline_url}",
-            f"- Source commit: `{commit_sha}` on TAK.gov `develop`",
+            f"- Source commit: `{commit_sha}` on TAK.gov `main`",
             f"- SHA256: `{checksum}`",
             "",
             "Install the APK above. GitHub's \"Source code\" archives come from the fixed "
@@ -778,7 +778,7 @@ def main() -> int:
         github = GitHubClient(repository, token)
         if args.personal:
             verify_source_pipeline(gitlab, env)
-            github.sync_personal_develop(
+            github.sync_personal_main(
                 env["CI_COMMIT_SHA"], Path(env["CI_PROJECT_DIR"])
             )
         asset_name = publish(

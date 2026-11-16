@@ -19,7 +19,7 @@ function verifiedRollingDetails(context, release, pipelineId, asset) {
   const version = /^- APK version: \*\*([^*\r\n]+)\*\* \(versionCode \*\*([1-9]\d*)\*\*\)$/m.exec(body);
   const build = /^- Build: GitLab pipeline \*\*([1-9]\d*)\*\* \(project pipeline \*\*([1-9]\d*)\*\*\)$/m.exec(body);
   const pipeline = /^- Pipeline: (https:\/\/git\.tak\.gov\/aegorsuch\/atak-plugin-weartak-companion\/-\/pipelines\/[1-9]\d*)$/m.exec(body);
-  const source = /^- Source commit: `[0-9a-f]{40}` on TAK\.gov `develop`$/m.test(body);
+  const source = /^- Source commit: `[0-9a-f]{40}` on TAK\.gov `main`$/m.test(body);
   if ((!name && !legacyName) || !checksum || !version || !build || !pipeline || !source) return false;
   const baseVersion = /^(\d+(?:\.\d+)+)(?:\s|$)/.exec(version[1]);
   return baseVersion && (!name || baseVersion[1] === name[1]) &&

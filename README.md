@@ -112,13 +112,12 @@ remote connectivity.
 ### Repositories
 
 The TAK Forge repository is canonical; GitHub is secondary.
-The canonical `develop` pipeline can publish signed CIV builds to a stable
-GitHub release. See
+The protected `main` pipeline builds and signs CIV APKs, then publishes them
+to a stable GitHub release. See
 [docs/github-release-publishing.md](docs/github-release-publishing.md) for the
 protected-token setup and publication behavior.
 
-The pipeline description above reflects the checked-in `develop`-gated CI rules,
-not a claim that the current default `main` branch triggers publishing.
+The pipeline description above reflects the checked-in `main`-gated CI rules.
 Historical integration notes below retain their original branch, version, test
 counts, and behavior statements; later feature notes may supersede them.
 
@@ -167,8 +166,8 @@ presence-only `__video: {}` camera classification; stream URLs and other video
 attributes are never sent to Garmin. Coordinate-free `t-x-d-d` deletion events
 are relayed; map removals delete only entities previously published by the phone.
 The MR-only `field_report_regressions` job runs these transport-independent JUnit
-regressions without signing an APK. The existing protected-`develop` signed
-release pipeline remains unchanged.
+regressions without signing an APK. Protected `main` pushes run the signed
+release pipeline.
 
 ### ATAK display units
 
