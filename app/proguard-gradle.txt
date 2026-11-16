@@ -98,3 +98,7 @@
 -dontwarn androidx.appcompat.widget.AppCompatButton
 -dontwarn androidx.appcompat.widget.AppCompatImageButton
 -dontwarn androidx.appcompat.widget.AppCompatImageView
+-dontwarn com.google.auto.value.AutoValue**
+-dontwarn com.google.errorprone.annotations.MustBeClosed
+-dontwarn io.opentelemetry.api.incubator.**
+-dontwarn org.osgi.annotation.bundle.Export
