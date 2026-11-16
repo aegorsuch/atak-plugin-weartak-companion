@@ -1856,7 +1856,8 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
             } catch (Exception e) {
                 String category = dittoFailureCategory(e);
                 LogX.e(TAG, "Ditto connect failed; category=" + category
-                        + ", type=" + e.getClass().getSimpleName());
+                        + ", type=" + e.getClass().getSimpleName()
+                        + ", frames=" + dittoFailureFrames(e));
                 runOnMain(() -> {
                     if (!isCurrentDittoUi(uiGeneration)) return;
                     dittoSyncStarting = false;
@@ -1886,6 +1887,18 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
         if (type.contains("network") || type.contains("connect")
                 || type.contains("transport") || type.contains("timeout")) return "network";
         return "sdk";
+    }
+
+    private static String dittoFailureFrames(Throwable error) {
+        StringBuilder frames = new StringBuilder();
+        StackTraceElement[] stack = error.getStackTrace();
+        for (int i = 0; i < Math.min(stack.length, 8); i++) {
+            if (i > 0) frames.append(" <- ");
+            StackTraceElement frame = stack[i];
+            frames.append(frame.getClassName()).append('#')
+                    .append(frame.getMethodName()).append(':').append(frame.getLineNumber());
+        }
+        return frames.toString();
     }
 
     private static String dittoFailureMessage(String category) {
