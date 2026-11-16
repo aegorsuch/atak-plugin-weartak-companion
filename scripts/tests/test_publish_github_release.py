@@ -15,7 +15,7 @@ class FakeGitLab:
     def __init__(self, branch: dict[str, Any]) -> None:
         self.branch = branch
 
-    def develop_branch(self) -> dict[str, Any]:
+    def main_branch(self) -> dict[str, Any]:
         return self.branch
 
 
@@ -46,8 +46,8 @@ class FakeGitHub:
     def require_branch_sha(self, branch: str, expected_sha: str) -> None:
         if self.branch_sha is not None and self.branch_sha != expected_sha:
             raise publisher.PublishError(
-                f"Personal GitHub develop mirror is stale: expected {expected_sha}, "
-                f"found {self.branch_sha}. Non-force sync canonical develop to the "
+                f"Personal GitHub main mirror is stale: expected {expected_sha}, "
+                f"found {self.branch_sha}. Non-force sync canonical main to the "
                 "personal mirror before publication."
             )
 
@@ -151,7 +151,7 @@ def make_apk(
 
 def make_gitlab(env: dict[str, str]) -> FakeGitLab:
     return FakeGitLab(
-        {"name": "develop", "commit": {"id": env["CI_COMMIT_SHA"]}}
+        {"name": "main", "commit": {"id": env["CI_COMMIT_SHA"]}}
     )
 
 
@@ -214,12 +214,12 @@ class RollingReleaseTests(unittest.TestCase):
             "json_request",
             return_value=(200, {"commit": {"sha": "a" * 40}}),
         ) as request:
-            github.require_branch_sha("develop", "a" * 40)
+            github.require_branch_sha("main", "a" * 40)
         self.assertEqual(
             request.call_args.args,
             (
                 "GET",
-                "/repos/Ascent-Integrated-Tech/atak-plugin-weartak-companion/branches/develop",
+                "/repos/Ascent-Integrated-Tech/atak-plugin-weartak-companion/branches/main",
             ),
         )
 
@@ -293,13 +293,15 @@ class RollingReleaseTests(unittest.TestCase):
         )
         self.assertIn("python3 scripts/publish_github_release.py --personal", config)
         self.assertIn('$PUBLISH_PERSONAL_GITHUB == "true"', config)
+        self.assertIn('$CI_COMMIT_BRANCH == "main"', config)
+        self.assertNotIn('$CI_COMMIT_BRANCH == "develop"', config)
 
-    def test_personal_publication_fails_closed_when_develop_mirror_is_stale(self) -> None:
+    def test_personal_publication_fails_closed_when_main_mirror_is_stale(self) -> None:
         github = FakeGitHub()
         github.branch_sha = "b" * 40
         with patch.object(publisher, "verify_signer"):
             with self.assertRaisesRegex(
-                publisher.PublishError, "Personal GitHub develop mirror is stale"
+                publisher.PublishError, "Personal GitHub main mirror is stale"
             ):
                 publisher.publish(
                     self.env,
@@ -310,7 +312,7 @@ class RollingReleaseTests(unittest.TestCase):
         self.assertEqual(github.release_creations, 0)
         self.assertEqual(github.uploaded, {})
 
-    def test_personal_develop_sync_is_non_force_and_verifies_readback(self) -> None:
+    def test_personal_main_sync_is_non_force_and_verifies_readback(self) -> None:
         source_sha = self.env["CI_COMMIT_SHA"]
         old_sha = "b" * 40
         github = publisher.GitHubClient(
@@ -331,7 +333,7 @@ class RollingReleaseTests(unittest.TestCase):
                 subprocess.CompletedProcess(["git"], 0, "", ""),
                 subprocess.CompletedProcess(["git"], 0, "", ""),
             ]
-            github.sync_personal_develop(source_sha, self.directory)
+            github.sync_personal_main(source_sha, self.directory)
 
         commands = [call.args[0] for call in run.call_args_list]
         self.assertIn("--no-tags", commands[1])
@@ -339,10 +341,10 @@ class RollingReleaseTests(unittest.TestCase):
         self.assertIn("push", commands[4])
         self.assertNotIn("--force", commands[4])
         self.assertIn("--no-follow-tags", commands[4])
-        self.assertTrue(commands[4][-1].endswith(f"{source_sha}:refs/heads/develop"))
+        self.assertTrue(commands[4][-1].endswith(f"{source_sha}:refs/heads/main"))
         self.assertNotIn("fake-personal-token", " ".join(" ".join(cmd) for cmd in commands))
 
-    def test_personal_develop_sync_rejects_divergence_without_push(self) -> None:
+    def test_personal_main_sync_rejects_divergence_without_push(self) -> None:
         source_sha = self.env["CI_COMMIT_SHA"]
         old_sha = "b" * 40
         github = publisher.GitHubClient(
@@ -362,7 +364,7 @@ class RollingReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 publisher.PublishError, "non-force push check"
             ):
-                github.sync_personal_develop(source_sha, self.directory)
+                github.sync_personal_main(source_sha, self.directory)
         self.assertFalse(
             any(call.args[0][1] == "push" for call in run.call_args_list)
         )
@@ -654,7 +656,7 @@ class RollingReleaseTests(unittest.TestCase):
         checksum = "a" * 64
         generated = publisher.release_description("100", "b" * 40,
                                               "5.6.0", checksum, "123", "42")
-        self.assertIn("stable ATAK Companion CIV develop-channel build", generated)
+        self.assertIn("stable ATAK Companion CIV main-channel build", generated)
         self.assertIn("project pipeline **42**", generated)
         self.assertIn("source commit above is authoritative", generated)
         self.assertNotIn("managed APK sha256=", generated)

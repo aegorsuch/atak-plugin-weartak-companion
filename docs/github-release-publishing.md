@@ -1,12 +1,12 @@
 # TAK.gov pipeline release
 
-The protected `develop` push pipeline publishes the signed CIV APK from
+The protected `main` push pipeline publishes the signed CIV APK from
 `release_build_and_sign` to the stable GitHub release named **TAK.gov CI/CD
 Pipeline Release**. Before the first run, a maintainer must pre-create the fixed
 GitHub tag `tak-gov-ci-cd-pipeline`. The publisher requires that tag to exist and
 never creates or moves tags. It does not require the canonical commit to exist
 on the GitHub mirror, which may lag behind TAK.gov. It checks the protected
-source project and branch, skips builds for commits superseded on `develop`,
+source project and branch, skips builds for commits superseded on `main`,
 and records pipeline IDs so an older duplicate pipeline cannot replace a newer
 published build. It verifies the APK signature against the TAK Product Center
 release certificate before upload. The Android App Bundle, debug APKs, source
@@ -80,12 +80,12 @@ To enable the personal destination:
   enable the personal job. The job itself fixes both repository variables to
   `aegorsuch/atak-plugin-weartak-companion`; no destination variable or personal
   credential is exposed to the organization publisher.
-- Ensure the personal repository already has the fixed `develop` mirror branch
+- Ensure the personal repository already has the fixed `main` mirror branch
   and fixed anchor tag `tak-gov-ci-cd-pipeline`.
 
 The dedicated `--personal` publisher validates its allowlisted destination and
 requires the separate token. Before publication, it synchronizes only the
-personal repository's `develop` branch from the exact pipeline checkout: the CI
+personal repository's `main` branch from the exact pipeline checkout: the CI
 HEAD must match `CI_COMMIT_SHA`, the existing personal tip must be an ancestor,
 and the publisher uses a normal non-force push with tags and other refs
 excluded. It then reads the branch back and fails before publishing unless it
@@ -97,11 +97,11 @@ the durable fast-forward sync instead of relying on a manually current mirror.
 The two publisher jobs share a resource group, serializing org and personal
 rolling-release updates. Without `PUBLISH_PERSONAL_GITHUB=true` and the separately
 environment-scoped token, publication remains limited to the organization
-repository. Do not copy local GitHub credentials into CI. The `develop` branch
+repository. Do not copy local GitHub credentials into CI. The `main` branch
 must remain protected. The CI image must provide Python 3, Git, and Android
 `apksigner`; availability must be confirmed before the first live run. The
 publisher also uses the same-project `CI_JOB_TOKEN` to verify the current
-canonical `develop` branch tip; it does not require another GitLab access
+canonical `main` branch tip; it does not require another GitLab access
 token.
 
 This source change does not create or move GitHub tags or modify GitLab project
@@ -151,10 +151,10 @@ configured.
 
 Before enabling:
 
-- Merge these files into GitHub's default branch (`develop`) and enable Actions
+- Merge these files into GitHub's default branch (`main`) and enable Actions
   and Issues for the repository. Rolling-release dispatch runs use the workflow
   on the default branch, so the fixed tag does not need to contain it or move.
-  Deploy the publisher change to canonical TAK.gov `develop` as well; updating
+  Deploy the publisher change to canonical TAK.gov `main` as well; updating
   GitHub's mirror alone does not change the canonical publisher.
   For separately tagged releases, the published tag must also contain
   `.github/workflows/release-testing.yml`, because GitHub loads release-triggered

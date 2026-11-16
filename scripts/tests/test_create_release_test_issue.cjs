@@ -174,7 +174,7 @@ function watchStyleHarness(pipelineId = '100', pages) {
     '- APK version: **5.6.0 (abc) - [5.6.0]** (versionCode **123**)',
     `- Build: GitLab pipeline **${pipelineId}** (project pipeline **28**)`,
     `- Pipeline: https://git.tak.gov/aegorsuch/atak-plugin-weartak-companion/-/pipelines/${pipelineId}`,
-    `- Source commit: \`${'b'.repeat(40)}\` on TAK.gov \`develop\``,
+    `- Source commit: \`${'b'.repeat(40)}\` on TAK.gov \`main\``,
     `- SHA256: \`${'a'.repeat(64)}\``,
     '<!-- /weartak-companion-rolling-release:managed -->',
   ].join('\n');
