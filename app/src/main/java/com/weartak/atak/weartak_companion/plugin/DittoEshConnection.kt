@@ -1,10 +1,12 @@
 package com.weartak.atak.weartak_companion.plugin
 
 import android.content.Context
+import androidx.startup.AppInitializer
 import com.ditto.kotlin.Ditto
 import com.ditto.kotlin.DittoAuthenticationProvider
 import com.ditto.kotlin.DittoConfig
 import com.ditto.kotlin.DittoFactory
+import com.ditto.kotlin.DittoInitializer
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import java.io.File
@@ -102,6 +104,9 @@ object DittoEshConnection {
             connect = if (community == null) DittoConfig.Connect.Server(url = serverUrl.trim())
                 else DittoConfig.Connect.SmallPeersOnly(community.sharedKey)
         )
+        // ATAK loads plugin APKs into its process, so the plugin's Startup provider is not run.
+        AppInitializer.getInstance(context.applicationContext)
+            .initializeComponent(DittoInitializer::class.java)
         val ditto = DittoFactory.create(config)
 
         val nextSubscriptions = mutableListOf<AutoCloseable>()
