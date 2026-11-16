@@ -12,10 +12,15 @@ field_report_regressions:
     - |
       set -euo pipefail
       mkdir -p .regression-libs .regression-classes
-      base=https://repo.maven.apache.org/maven2
+      base=https://maven-central.storage-download.googleapis.com/maven2
       curl --fail --silent --show-error --retry 3 "$base/junit/junit/4.13.2/junit-4.13.2.jar" -o .regression-libs/junit.jar
       curl --fail --silent --show-error --retry 3 "$base/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar" -o .regression-libs/hamcrest.jar
       curl --fail --silent --show-error --retry 3 "$base/org/json/json/20231013/json-20231013.jar" -o .regression-libs/json.jar
+      printf '%s  %s\n' \
+        8e495b634469d64fb8acfa3495a065cbacc8a0fff55ce1e31007be4c16dc57d3 .regression-libs/junit.jar \
+        66fdef91e9739348df7a096aa384a5685f4e875584cce89386a7a47251c4d8e9 .regression-libs/hamcrest.jar \
+        0f18192df289114e17aa1a0d0a7f8372cc9f5c7e4f7e39adcf8906fe714fa7d3 .regression-libs/json.jar \
+        | sha256sum --check
       main=app/src/main/java/com/weartak/atak/weartak_companion/plugin
       tests=app/src/test/java/com/weartak/atak/weartak_companion/plugin
       javac -cp '.regression-libs/*' -d .regression-classes \
