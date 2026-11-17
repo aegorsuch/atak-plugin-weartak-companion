@@ -24,6 +24,7 @@ field_report_regressions:
       main=app/src/main/java/com/weartak/atak/weartak_companion/plugin
       tests=app/src/test/java/com/weartak/atak/weartak_companion/plugin
       javac -cp '.regression-libs/*' -d .regression-classes \
+        "$main/DittoCInteropCompat.java" \
         "$main/BondFailureTracker.java" "$tests/BondFailureTrackerTest.java" \
         "$main/PhoneFixValidator.java" "$main/PhonePosition.java" \
         "$main/PhonePositionActions.java" "$main/WatchMessageIds.java" \
