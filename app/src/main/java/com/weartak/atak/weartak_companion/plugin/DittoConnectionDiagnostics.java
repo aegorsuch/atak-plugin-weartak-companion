@@ -40,7 +40,45 @@ final class DittoConnectionDiagnostics {
     static String logMessage(String stage, Throwable error) {
         return "Ditto connect failed; stage=" + safeStage(stage)
                 + ", category=" + category(error)
-                + ", type=" + exceptionType(error);
+                + ", type=" + exceptionType(error)
+                + stackFrames(error);
+    }
+
+    private static String stackFrames(Throwable error) {
+        StringBuilder frames = new StringBuilder();
+        Throwable current = error;
+        int remaining = 16;
+        for (int depth = 0; current != null && depth < 8 && remaining > 0; depth++) {
+            for (StackTraceElement frame : current.getStackTrace()) {
+                String owner = frame.getClassName();
+                String method = frame.getMethodName();
+                if (!(owner.startsWith("com.ditto.") || owner.startsWith("kotlin.")
+                        || owner.startsWith("kotlinx.")
+                        || owner.startsWith("com.weartak.atak.weartak_companion."))
+                        || !safeSymbol(owner) || !safeSymbol(method)) continue;
+                frames.append("\n  cause=").append(depth).append(' ')
+                        .append(owner).append('#').append(method)
+                        .append(':').append(frame.getLineNumber());
+                if (--remaining == 0) break;
+            }
+            Throwable cause = current.getCause();
+            if (cause == current) break;
+            current = cause;
+        }
+        return frames.toString();
+    }
+
+    private static boolean safeSymbol(String symbol) {
+        if (symbol.isEmpty() || symbol.length() > 200) return false;
+        for (int i = 0; i < symbol.length(); i++) {
+            char character = symbol.charAt(i);
+            if (!(character >= 'a' && character <= 'z')
+                    && !(character >= 'A' && character <= 'Z')
+                    && !(character >= '0' && character <= '9')
+                    && character != '.' && character != '$' && character != '_'
+                    && character != '<' && character != '>') return false;
+        }
+        return true;
     }
 
     static String failureMessage(boolean community, String stage, Throwable error) {
