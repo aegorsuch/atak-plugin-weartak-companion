@@ -15,6 +15,7 @@ import java.security.MessageDigest
 import java.util.Locale
 
 interface DittoEshListener {
+    fun onConnectionStage(stage: String)
     fun onCollectionSnapshot(collection: String, documents: List<String>)
     fun onEshConnectionStatus(connected: Boolean)
     fun onObserverError(category: String)
@@ -54,11 +55,13 @@ object DittoEshConnection {
         token: String,
         listener: DittoEshListener
     ) = synchronized(connectLock) {
+        reportStage(listener, "esh-inputs")
         connectSerially(context, databaseId, serverUrl, token, null, listener)
     }
 
     @JvmStatic
     fun connectCommunity(context: Context, listener: DittoEshListener) = synchronized(connectLock) {
+        reportStage(listener, "community-license")
         val license = DittoCommunityLicense.parse(
             BuildConfig.DITTO_COMMUNITY_IDENTITY, System.currentTimeMillis()
         )
@@ -73,12 +76,14 @@ object DittoEshConnection {
         community: DittoCommunityLicense?,
         listener: DittoEshListener
     ) {
+        reportStage(listener, "input-validation")
         require(databaseId.isNotBlank()) { "Ditto database ID is required" }
         if (community == null) {
             require(serverUrl.isNotBlank()) { "ESH server URL is required" }
             require(token.isNotBlank()) { "Ditto development token is required" }
         }
 
+        reportStage(listener, "lifecycle")
         val operation = synchronized(lock) {
             check(sessionEnabled) { "Ditto connection is unavailable while plugin is stopped" }
             check(instance == null || instanceGeneration < sessionGeneration) {
@@ -96,6 +101,7 @@ object DittoEshConnection {
             check(instance == null) { "Disconnect the current Ditto session before reconnecting" }
         }
 
+        reportStage(listener, "configuration")
         val normalizedDatabaseId = databaseId.trim()
         val config = DittoConfig(
             databaseId = normalizedDatabaseId,
@@ -104,18 +110,23 @@ object DittoEshConnection {
             connect = if (community == null) DittoConfig.Connect.Server(url = serverUrl.trim())
                 else DittoConfig.Connect.SmallPeersOnly(community.sharedKey)
         )
+        reportStage(listener, "interop-compat")
         DittoCInteropCompat.primeDynamicArrayType()
         // ATAK loads plugin APKs into its process, so the plugin's Startup provider is not run.
+        reportStage(listener, "sdk-initializer")
         AppInitializer.getInstance(context.applicationContext)
             .initializeComponent(DittoInitializer::class.java)
+        reportStage(listener, "sdk-factory")
         val ditto = DittoFactory.create(config)
 
         val nextSubscriptions = mutableListOf<AutoCloseable>()
         val nextObservers = mutableListOf<AutoCloseable>()
         try {
             if (community != null) {
+                reportStage(listener, "community-identity")
                 ditto.setOfflineOnlyLicenseToken(community.token)
             } else {
+                reportStage(listener, "esh-authentication")
                 val auth = checkNotNull(ditto.auth) { "Ditto authentication is unavailable" }
                 auth.expirationHandler = { dittoInstance, _ ->
                     dittoInstance.auth?.login(token, DittoAuthenticationProvider.development())
@@ -126,9 +137,11 @@ object DittoEshConnection {
                 }
             }
 
+            reportStage(listener, "subscriptions")
             COLLECTIONS.forEach { collection ->
                 val query = "SELECT * FROM $collection"
                 nextSubscriptions += ditto.sync.registerSubscription(query)
+                reportStage(listener, "observers")
                 nextObservers += ditto.store.registerObserver(query) { result ->
                     if (isOperationCurrent(operation.first, operation.second)) {
                         val documents = result.items.map { it.jsonString() }
@@ -165,12 +178,14 @@ object DittoEshConnection {
                     operationGeneration == operation.second) {
                     "Ditto connection was superseded by a lifecycle change"
                 }
+                reportStage(listener, "sync-start")
                 ditto.sync.start()
                 instance = ditto
                 instanceGeneration = operation.first
                 subscriptions = nextSubscriptions
                 observers = nextObservers
             }
+            reportStage(listener, "sync-started")
         } catch (e: Exception) {
             closeHandles(nextObservers)
             closeHandles(nextSubscriptions)
@@ -234,6 +249,11 @@ object DittoEshConnection {
             sessionEnabled && sessionGeneration == session &&
                 operationGeneration == operation
         }
+
+    private fun reportStage(listener: DittoEshListener, stage: String) {
+        android.util.Log.i(TAG, "Connection stage=$stage")
+        listener.onConnectionStage(stage)
+    }
 
     private fun persistenceDirectory(context: Context, databaseId: String): String {
         val key = MessageDigest.getInstance("SHA-256")

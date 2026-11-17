@@ -69,6 +69,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import gov.tak.api.plugin.IPlugin;
 import gov.tak.api.plugin.IServiceController;
@@ -1781,7 +1782,7 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
                         updateDittoConnectionStatus("Not connected");
                     });
                 } catch (Exception e) {
-                    String category = dittoFailureCategory(e);
+                    String category = DittoConnectionDiagnostics.category(e);
                     LogX.e(TAG, "Ditto disconnect failed; category=" + category
                             + ", type=" + e.getClass().getSimpleName());
                     runOnMain(() -> {
@@ -1813,10 +1814,21 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
         final MapView mapView = MapView.getMapView();
         final Context context = mapView == null ? pluginContext : mapView.getContext();
         final long uiGeneration = dittoUiGeneration.get();
+        final AtomicReference<String> connectionStage =
+                new AtomicReference<>("request-validation");
         dittoAuthTokenET.setText("");
         new Thread(() -> {
             try {
                 DittoEshListener listener = new DittoEshListener() {
+                            @Override public void onConnectionStage(String stage) {
+                                connectionStage.set(stage);
+                                runOnMain(() -> {
+                                    if (!isCurrentDittoUi(uiGeneration)) return;
+                                    updateDittoConnectionStatus(
+                                            "Starting Ditto sync (" + stage + ")...");
+                                });
+                            }
+
                             @Override public void onCollectionSnapshot(
                                     String collection, List<String> documents) {
                                 processDittoSnapshot(collection, documents, uiGeneration);
@@ -1854,15 +1866,15 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
                             ? "Connected to Ditto ESH." : dittoStatusText());
                 });
             } catch (Exception e) {
-                String category = dittoFailureCategory(e);
-                LogX.e(TAG, "Ditto connect failed; category=" + category
-                        + ", type=" + e.getClass().getSimpleName()
-                        + ", frames=" + dittoFailureFrames(e));
+                String category = DittoConnectionDiagnostics.category(e);
+                android.util.Log.e("WTK/Ditto",
+                        DittoConnectionDiagnostics.logMessage(connectionStage.get(), e));
                 runOnMain(() -> {
                     if (!isCurrentDittoUi(uiGeneration)) return;
                     dittoSyncStarting = false;
                     updateDittoConnectionStatus(community
-                            ? "Community sync failed; check the bundled license and permissions."
+                            ? DittoConnectionDiagnostics.failureMessage(
+                                    true, connectionStage.get(), e)
                             : dittoFailureMessage(category));
                 });
             }
@@ -1878,27 +1890,6 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
         return dittoEshConnected
                 ? "Connected to Ditto ESH."
                 : "Sync active; ESH connectivity not confirmed.";
-    }
-
-    private static String dittoFailureCategory(Exception error) {
-        String type = error.getClass().getSimpleName().toLowerCase(java.util.Locale.ROOT);
-        if (error instanceof IllegalArgumentException) return "configuration";
-        if (type.contains("auth") || type.contains("token")) return "authentication";
-        if (type.contains("network") || type.contains("connect")
-                || type.contains("transport") || type.contains("timeout")) return "network";
-        return "sdk";
-    }
-
-    private static String dittoFailureFrames(Throwable error) {
-        StringBuilder frames = new StringBuilder();
-        StackTraceElement[] stack = error.getStackTrace();
-        for (int i = 0; i < Math.min(stack.length, 8); i++) {
-            if (i > 0) frames.append(" <- ");
-            StackTraceElement frame = stack[i];
-            frames.append(frame.getClassName()).append('#')
-                    .append(frame.getMethodName()).append(':').append(frame.getLineNumber());
-        }
-        return frames.toString();
     }
 
     private static String dittoFailureMessage(String category) {
