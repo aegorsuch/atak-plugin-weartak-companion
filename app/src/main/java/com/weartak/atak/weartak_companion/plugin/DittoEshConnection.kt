@@ -111,7 +111,7 @@ object DittoEshConnection {
                 else DittoConfig.Connect.SmallPeersOnly(community.sharedKey)
         )
         reportStage(listener, "interop-compat")
-        DittoCInteropCompat.primeDynamicArrayType()
+        DittoCInteropCompat.primeRequiredTypes()
         // ATAK loads plugin APKs into its process, so the plugin's Startup provider is not run.
         reportStage(listener, "sdk-initializer")
         AppInitializer.getInstance(context.applicationContext)

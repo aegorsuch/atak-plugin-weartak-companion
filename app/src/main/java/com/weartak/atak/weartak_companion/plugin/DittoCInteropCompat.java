@@ -7,7 +7,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 final class DittoCInteropCompat {
     private static final String EXPECTED_DITTO_VERSION = "5.2.0";
-    private static final String DYNAMIC_ARRAY_CLASS = "com.ditto.dittoffi.DynamicArray";
+    private static final String[] REQUIRED_TYPES = {
+            "com.ditto.dittoffi.DynamicArray",
+            "com.ditto.kotlinx.cinterop.UByteVarOf"
+    };
     private static final String JVM_TYPES_CLASS = "com.ditto.kotlinx.cinterop.JvmTypesKt";
     private static final String C_VARIABLE_TYPE_CLASS = "com.ditto.kotlinx.cinterop.CVariable$Type";
     private static final String TYPE_CACHE_ACCESSOR = "access$getTypeOfCache$p";
@@ -15,14 +18,10 @@ final class DittoCInteropCompat {
     private DittoCInteropCompat() {
     }
 
-    static void primeDynamicArrayType() {
+    static void primeRequiredTypes() {
         try {
             ClassLoader pluginClassLoader = DittoCInteropCompat.class.getClassLoader();
             Class<?> jvmTypes = Class.forName(JVM_TYPES_CLASS, false, pluginClassLoader);
-            Class<?> dynamicArray = Class.forName(DYNAMIC_ARRAY_CLASS, false, pluginClassLoader);
-            if (jvmTypes.getClassLoader() != dynamicArray.getClassLoader()) {
-                throw new IllegalStateException("Ditto C interop classes use different class loaders");
-            }
             verifySdkVersion(jvmTypes.getClassLoader());
 
             // Ditto 5.2.0 has no public registration API; this is its only cache accessor.
@@ -35,17 +34,24 @@ final class DittoCInteropCompat {
             if (!(cache instanceof ConcurrentHashMap)) {
                 throw new IllegalStateException("Ditto C interop type cache is unavailable");
             }
-            Field companionField = dynamicArray.getField("Companion");
-            if (!Modifier.isStatic(companionField.getModifiers())) {
-                throw new IllegalStateException("Ditto DynamicArray companion is not static");
-            }
-            Object companion = companionField.get(null);
             Class<?> cVariableType = Class.forName(
                     C_VARIABLE_TYPE_CLASS, false, jvmTypes.getClassLoader());
-            if (!cVariableType.isInstance(companion)) {
-                throw new IllegalStateException("Ditto DynamicArray companion is not a C variable type");
+            // Unsigned byte-array conversion resolves both the struct and its element type.
+            for (String typeName : REQUIRED_TYPES) {
+                Class<?> variable = Class.forName(typeName, false, pluginClassLoader);
+                if (jvmTypes.getClassLoader() != variable.getClassLoader()) {
+                    throw new IllegalStateException("Ditto C interop classes use different class loaders");
+                }
+                Field companionField = variable.getField("Companion");
+                if (!Modifier.isStatic(companionField.getModifiers())) {
+                    throw new IllegalStateException("Ditto C interop companion is not static");
+                }
+                Object companion = companionField.get(null);
+                if (!cVariableType.isInstance(companion)) {
+                    throw new IllegalStateException("Ditto companion is not a C variable type");
+                }
+                putIfAbsent((ConcurrentHashMap<?, ?>) cache, variable, companion);
             }
-            putIfAbsent((ConcurrentHashMap<?, ?>) cache, dynamicArray, companion);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("Unable to initialize Ditto C interop", e);
         }
@@ -66,9 +72,9 @@ final class DittoCInteropCompat {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static void putIfAbsent(ConcurrentHashMap<?, ?> cache,
-            Class<?> dynamicArray, Object companion) {
+            Class<?> variable, Object companion) {
         Object existing = ((ConcurrentHashMap) cache).putIfAbsent(
-                dynamicArray, companion);
+                variable, companion);
         if (existing != null && existing != companion) {
             throw new IllegalStateException("Ditto C interop type cache contains a conflicting type");
         }
