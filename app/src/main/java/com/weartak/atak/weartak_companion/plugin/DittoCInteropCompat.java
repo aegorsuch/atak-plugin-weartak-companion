@@ -9,6 +9,7 @@ final class DittoCInteropCompat {
     private static final String EXPECTED_DITTO_VERSION = "5.2.0";
     private static final String DYNAMIC_ARRAY_CLASS = "com.ditto.dittoffi.DynamicArray";
     private static final String JVM_TYPES_CLASS = "com.ditto.kotlinx.cinterop.JvmTypesKt";
+    private static final String C_VARIABLE_TYPE_CLASS = "com.ditto.kotlinx.cinterop.CVariable$Type";
     private static final String TYPE_CACHE_ACCESSOR = "access$getTypeOfCache$p";
 
     private DittoCInteropCompat() {
@@ -39,8 +40,10 @@ final class DittoCInteropCompat {
                 throw new IllegalStateException("Ditto DynamicArray companion is not static");
             }
             Object companion = companionField.get(null);
-            if (!companionField.getType().isInstance(companion)) {
-                throw new IllegalStateException("Ditto DynamicArray companion has an unexpected type");
+            Class<?> cVariableType = Class.forName(
+                    C_VARIABLE_TYPE_CLASS, false, jvmTypes.getClassLoader());
+            if (!cVariableType.isInstance(companion)) {
+                throw new IllegalStateException("Ditto DynamicArray companion is not a C variable type");
             }
             putIfAbsent((ConcurrentHashMap<?, ?>) cache, dynamicArray, companion);
         } catch (ReflectiveOperationException e) {
