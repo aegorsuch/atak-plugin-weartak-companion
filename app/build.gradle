@@ -254,6 +254,7 @@ android {
     defaultConfig {
         minSdkVersion 24
         targetSdkVersion 36
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         def communityIdentity = providers.gradleProperty('dittoCommunityIdentity').orElse('').get().trim()
         if (communityIdentity.startsWith('"') && communityIdentity.endsWith('"')
                 && communityIdentity.length() >= 2) {
@@ -350,6 +351,9 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20231013'
     testImplementation 'org.mockito:mockito-core:4.11.0'
+
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'junit:junit:4.13.2'
 
     // This is likely pulling in appcompat transitively depending on your environment.
     implementation("com.google.android.gms:play-services-wearable:18.1.0") {

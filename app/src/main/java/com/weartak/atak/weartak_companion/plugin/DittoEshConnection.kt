@@ -110,12 +110,12 @@ object DittoEshConnection {
             connect = if (community == null) DittoConfig.Connect.Server(url = serverUrl.trim())
                 else DittoConfig.Connect.SmallPeersOnly(community.sharedKey)
         )
-        reportStage(listener, "interop-compat")
-        DittoCInteropCompat.primeRequiredTypes()
         // ATAK loads plugin APKs into its process, so the plugin's Startup provider is not run.
         reportStage(listener, "sdk-initializer")
         AppInitializer.getInstance(context.applicationContext)
             .initializeComponent(DittoInitializer::class.java)
+        reportStage(listener, "interop-compat")
+        DittoCInteropCompat.primeRequiredTypes()
         reportStage(listener, "sdk-factory")
         val ditto = DittoFactory.create(config)
 

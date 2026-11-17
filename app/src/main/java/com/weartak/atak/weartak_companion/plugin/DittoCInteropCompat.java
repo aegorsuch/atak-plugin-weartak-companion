@@ -9,7 +9,13 @@ final class DittoCInteropCompat {
     private static final String EXPECTED_DITTO_VERSION = "5.2.0";
     private static final String[] REQUIRED_TYPES = {
             "com.ditto.dittoffi.DynamicArray",
-            "com.ditto.kotlinx.cinterop.UByteVarOf"
+            "com.ditto.kotlinx.cinterop.UByteVarOf",
+            "com.ditto.dittoffi.jvm.dittoffi_result_CDitto_ptr",
+            "com.ditto.kotlinx.cinterop.CPointerVarOf",
+            "com.ditto.dittoffi.jvm.dittoffi_result_dittoffi_sync_subscription_ptr",
+            "com.ditto.dittoffi.BoxDynFnMut2_void_dittoffi_query_result_ptr_ArcDynFn0_void",
+            "com.ditto.dittoffi.jvm.dittoffi_result_dittoffi_store_observer_ptr",
+            "com.ditto.dittoffi.jvm.dittoffi_result_void"
     };
     private static final String JVM_TYPES_CLASS = "com.ditto.kotlinx.cinterop.JvmTypesKt";
     private static final String C_VARIABLE_TYPE_CLASS = "com.ditto.kotlinx.cinterop.CVariable$Type";
@@ -36,7 +42,7 @@ final class DittoCInteropCompat {
             }
             Class<?> cVariableType = Class.forName(
                     C_VARIABLE_TYPE_CLASS, false, jvmTypes.getClassLoader());
-            // Unsigned byte-array conversion resolves both the struct and its element type.
+            // SDK 5.2.0 factory, offline license, subscription, observer, and sync-start paths.
             for (String typeName : REQUIRED_TYPES) {
                 Class<?> variable = Class.forName(typeName, false, pluginClassLoader);
                 if (jvmTypes.getClassLoader() != variable.getClassLoader()) {
