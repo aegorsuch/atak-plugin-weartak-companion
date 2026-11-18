@@ -2,14 +2,24 @@ package com.weartak.atak.weartak_companion.plugin;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.function.Consumer;
 
 final class DittoConnectionDiagnostics {
     private DittoConnectionDiagnostics() {
     }
 
+    static void runConnectionAttempt(Runnable connect, Consumer<Throwable> reportFailure) {
+        try {
+            connect.run();
+        } catch (Exception | LinkageError error) {
+            reportFailure.accept(error);
+        }
+    }
+
     static String category(Throwable error) {
         Throwable current = error;
         for (int depth = 0; current != null && depth < 8; depth++) {
+            if (current instanceof LinkageError) return "sdk-linkage";
             String type = current.getClass().getSimpleName().toLowerCase(Locale.ROOT);
             if (type.contains("auth") || type.contains("token")) return "authentication";
             if (current instanceof SecurityException) return "permissions";

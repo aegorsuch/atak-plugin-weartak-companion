@@ -1,0 +1,161 @@
+import com.android.build.api.artifact.ScopedArtifact
+import com.android.build.api.variant.ScopedArtifacts
+import groovy.io.FileType
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.Directory
+import org.gradle.api.file.RegularFile
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.tasks.Classpath
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+import org.gradle.process.ExecOperations
+
+import javax.inject.Inject
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+
+buildscript {
+    dependencies {
+        classpath files(project.buildscript.configurations.classpath)
+    }
+}
+
+abstract class IsolateDittoSerialization extends DefaultTask {
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ListProperty<RegularFile> getInputJars()
+
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ListProperty<Directory> getInputDirectories()
+
+    @Classpath
+    abstract ConfigurableFileCollection getLibraries()
+
+    @Classpath
+    abstract ConfigurableFileCollection getCompilerClasspath()
+
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ConfigurableFileCollection getWarningRules()
+
+    @OutputFile
+    abstract RegularFileProperty getOutputJar()
+
+    @Inject
+    abstract ExecOperations getExecOperations()
+
+    @TaskAction
+    void isolate() {
+        if (compilerClasspath.files.size() != 1) {
+            throw new GradleException('Expected the R8 compiler already supplied by AGP')
+        }
+        def mappings = new TreeSet<String>()
+        def names = new HashSet<String>()
+        def warnings = new TreeSet<String>()
+        def collectWarnings = { String text ->
+            text.eachLine { line ->
+                if (line.trim().startsWith('-dontwarn ')) warnings.add(line.trim())
+            }
+        }
+        warningRules.files.each { file -> collectWarnings(file.getText('UTF-8')) }
+        def merged = new File(temporaryDir, 'classes.jar')
+        new ZipOutputStream(new FileOutputStream(merged)).withCloseable { target ->
+            def addClass = { String name, InputStream content ->
+                if (!name.endsWith('.class') || name.startsWith('META-INF/')
+                        || name == 'module-info.class') return
+                if (!names.add(name)) throw new GradleException("Duplicate class: ${name}")
+                target.putNextEntry(new ZipEntry(name))
+                target << content
+                target.closeEntry()
+                if (name.startsWith('kotlinx/serialization/')) {
+                    def original = name.substring(0, name.length() - 6).replace('/', '.')
+                    def relocated = original.replaceFirst('^kotlinx\\.serialization\\.',
+                            'com.weartak.atak.weartak_companion.internal.serialization.')
+                    mappings.add("${original} -> ${relocated}:")
+                }
+            }
+            inputJars.get().each { input ->
+                new ZipFile(input.asFile).withCloseable { archive ->
+                    archive.entries().each { entry ->
+                        if (!entry.directory && entry.name.endsWith('.class')) {
+                            archive.getInputStream(entry).withCloseable { content ->
+                                addClass(entry.name, content)
+                            }
+                        } else if (!entry.directory
+                                && (entry.name.startsWith('META-INF/proguard/')
+                                || entry.name.startsWith('META-INF/com.android.tools/proguard/'))) {
+                            archive.getInputStream(entry).withCloseable { content ->
+                                collectWarnings(content.getText('UTF-8'))
+                            }
+                        }
+                    }
+                }
+            }
+            inputDirectories.get().each { input ->
+                input.asFile.eachFileRecurse(FileType.FILES) { file ->
+                    if (file.name.endsWith('.class')) {
+                        def relative = input.asFile.toPath().relativize(file.toPath())
+                                .toString().replace(File.separatorChar, '/' as char)
+                        file.withInputStream { content -> addClass(relative, content) }
+                    }
+                }
+            }
+        }
+        if (mappings.isEmpty()) {
+            throw new GradleException('Ditto serialization runtime is missing from scoped classes')
+        }
+        def mapping = new File(temporaryDir, 'serialization-mapping.txt')
+        mapping.setText(mappings.join('\n') + '\n', 'UTF-8')
+        def rules = new File(temporaryDir, 'serialization.pro')
+        rules.setText("""
+-dontshrink
+-dontoptimize
+-keepattributes *Annotation*,Signature,EnclosingMethod,InnerClasses
+-keep class !kotlinx.serialization.**,** { *; }
+-keep,allowobfuscation class kotlinx.serialization.** { *; }
+-keepclassmembernames class kotlinx.serialization.** { *; }
+-applymapping "${mapping.absolutePath}"
+""" + warnings.join('\n') + '\n', 'UTF-8')
+        def output = outputJar.get().asFile
+        if (!output.parentFile.isDirectory() && !output.parentFile.mkdirs()) {
+            throw new GradleException("Cannot create serialization output directory: ${output.parent}")
+        }
+        execOperations.javaexec {
+            classpath = compilerClasspath
+            mainClass.set('com.android.tools.r8.R8')
+            maxHeapSize = '2g'
+            args '--release', '--pg-compat', '--classfile',
+                    '--lib', System.getProperty('java.home'),
+                    '--pg-conf', rules.absolutePath, '--output', output.absolutePath
+            libraries.files.each { library -> args '--lib', library.absolutePath }
+            args merged.absolutePath
+        }.assertNormalExitValue()
+    }
+}
+
+// Relocate before TAK's host mapping can pin an incompatible serialization ABI.
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+    def isolation = tasks.register("isolate${variant.name.capitalize()}DittoSerialization",
+            IsolateDittoSerialization) {
+        libraries.from(androidComponents.sdkComponents.bootClasspath, variant.compileClasspath)
+        warningRules.from(project.android.buildTypes.release.proguardFiles,
+                project.android.buildTypes.getByName(variant.buildType).proguardFiles)
+        compilerClasspath.from(providers.provider {
+            project.buildscript.configurations.classpath.files.findAll { file ->
+                if (!file.name.endsWith('.jar')) return false
+                new ZipFile(file).withCloseable { archive ->
+                    archive.getEntry('com/android/tools/r8/R8.class') != null
+                }
+            }
+        })
+    }
+    variant.artifacts.forScope(ScopedArtifacts.Scope.ALL).use(isolation).toTransform(
+            ScopedArtifact.CLASSES.INSTANCE,
+            { it.inputJars }, { it.inputDirectories }, { it.outputJar })
+}

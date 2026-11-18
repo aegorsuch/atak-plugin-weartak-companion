@@ -1817,43 +1817,42 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
         final AtomicReference<String> connectionStage =
                 new AtomicReference<>("request-validation");
         dittoAuthTokenET.setText("");
-        new Thread(() -> {
-            try {
+        new Thread(() -> DittoConnectionDiagnostics.runConnectionAttempt(() -> {
                 DittoEshListener listener = new DittoEshListener() {
-                            @Override public void onConnectionStage(String stage) {
-                                connectionStage.set(stage);
-                                runOnMain(() -> {
-                                    if (!isCurrentDittoUi(uiGeneration)) return;
-                                    updateDittoConnectionStatus(
-                                            "Starting Ditto sync (" + stage + ")...");
-                                });
-                            }
+                    @Override public void onConnectionStage(String stage) {
+                        connectionStage.set(stage);
+                        runOnMain(() -> {
+                            if (!isCurrentDittoUi(uiGeneration)) return;
+                            updateDittoConnectionStatus(
+                                    "Starting Ditto sync (" + stage + ")...");
+                        });
+                    }
 
-                            @Override public void onCollectionSnapshot(
-                                    String collection, List<String> documents) {
-                                processDittoSnapshot(collection, documents, uiGeneration);
-                            }
+                    @Override public void onCollectionSnapshot(
+                            String collection, List<String> documents) {
+                        processDittoSnapshot(collection, documents, uiGeneration);
+                    }
 
-                            @Override public void onEshConnectionStatus(boolean connected) {
-                                runOnMain(() -> {
-                                    if (!isCurrentDittoUi(uiGeneration)) return;
-                                    dittoEshConnected = connected;
-                                    updateDittoConnectionStatus(dittoStatusText());
-                                });
-                            }
+                    @Override public void onEshConnectionStatus(boolean connected) {
+                        runOnMain(() -> {
+                            if (!isCurrentDittoUi(uiGeneration)) return;
+                            dittoEshConnected = connected;
+                            updateDittoConnectionStatus(dittoStatusText());
+                        });
+                    }
 
-                            @Override public void onObserverError(String category) {
-                                LogX.w(TAG, "Ditto observer issue; category=" + category);
-                                if ("sync-status".equals(category)) {
-                                    runOnMain(() -> {
-                                        if (!isCurrentDittoUi(uiGeneration)) return;
-                                        dittoEshConnected = false;
-                                        updateDittoConnectionStatus(
-                                                "Sync active; ESH connection status unavailable.");
-                                    });
-                                }
-                            }
-                        };
+                    @Override public void onObserverError(String category) {
+                        LogX.w(TAG, "Ditto observer issue; category=" + category);
+                        if ("sync-status".equals(category)) {
+                            runOnMain(() -> {
+                                if (!isCurrentDittoUi(uiGeneration)) return;
+                                dittoEshConnected = false;
+                                updateDittoConnectionStatus(
+                                        "Sync active; ESH connection status unavailable.");
+                            });
+                        }
+                    }
+                };
                 if (community) {
                     DittoEshConnection.connectCommunity(context, listener);
                 } else {
@@ -1865,20 +1864,19 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
                     updateDittoConnectionStatus(dittoEshConnected
                             ? "Connected to Ditto ESH." : dittoStatusText());
                 });
-            } catch (Exception e) {
+            }, e -> {
                 String category = DittoConnectionDiagnostics.category(e);
                 android.util.Log.e("WTK/Ditto",
                         DittoConnectionDiagnostics.logMessage(connectionStage.get(), e));
                 runOnMain(() -> {
                     if (!isCurrentDittoUi(uiGeneration)) return;
                     dittoSyncStarting = false;
-                    updateDittoConnectionStatus(community
+                    updateDittoConnectionStatus(community || "sdk-linkage".equals(category)
                             ? DittoConnectionDiagnostics.failureMessage(
-                                    true, connectionStage.get(), e)
+                                    community, connectionStage.get(), e)
                             : dittoFailureMessage(category));
                 });
-            }
-        }, "WTK-Ditto-connect").start();
+            }), "WTK-Ditto-connect").start();
     }
 
     private boolean isCurrentDittoUi(long generation) {

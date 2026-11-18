@@ -4,12 +4,48 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class DittoConnectionDiagnosticsTest {
+    @Test
+    public void containsStartupLinkageFailureOnConnectionThread() throws Exception {
+        NoSuchMethodError error = new NoSuchMethodError("private endpoint and token");
+        AtomicReference<Throwable> reported = new AtomicReference<>();
+        AtomicReference<Throwable> uncaught = new AtomicReference<>();
+        Thread thread = new Thread(() -> DittoConnectionDiagnostics.runConnectionAttempt(
+                () -> { throw error; }, reported::set));
+        thread.setUncaughtExceptionHandler((ignored, failure) -> uncaught.set(failure));
+        thread.start();
+        thread.join(5000);
+
+        assertFalse("Connection thread did not finish", thread.isAlive());
+        assertNull(uncaught.get());
+        assertSame(error, reported.get());
+        String status = DittoConnectionDiagnostics.failureMessage(
+                true, "community-identity", reported.get());
+        assertEquals("Community sync failed at community-identity "
+                + "(sdk-linkage, NoSuchMethodError).", status);
+        assertFalse(DittoConnectionDiagnostics.logMessage(
+                "community-identity", reported.get()).contains("private"));
+    }
+
+    @Test
+    public void doesNotContainVirtualMachineFailure() {
+        OutOfMemoryError fatal = new OutOfMemoryError("synthetic");
+        AtomicReference<Throwable> reported = new AtomicReference<>();
+        assertSame(fatal, assertThrows(OutOfMemoryError.class,
+                () -> DittoConnectionDiagnostics.runConnectionAttempt(
+                        () -> { throw fatal; }, reported::set)));
+        assertNull(reported.get());
+    }
+
     @Test
     public void reportsDeepNetworkCauseAndStageWithoutExceptionMessage() {
         Exception error = new IllegalStateException(
