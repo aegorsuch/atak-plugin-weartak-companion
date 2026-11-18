@@ -44,10 +44,9 @@ final class DittoCotAdapter {
 
         JSONObject raw = new JSONObject(json);
         if (number(raw, "_v") != 2) throw new IllegalArgumentException("Unsupported Ditto schema version");
-        String uid = text(raw, "d");
-        if (!uid.equals(text(raw, "_id"))) {
-            throw new IllegalArgumentException("Ditto document/event identity mismatch");
-        }
+        String uid = text(raw, "_id");
+        // d identifies the producer device, not the marker/event.
+        text(raw, "d");
         String peer = text(raw, "a");
         String type = text(raw, "w");
         validateCollectionType(collection, type);
