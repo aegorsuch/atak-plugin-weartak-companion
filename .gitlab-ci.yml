@@ -27,6 +27,7 @@ field_report_regressions:
         "$main/DittoCInteropCompat.java" \
         "$main/DittoConnectionDiagnostics.java" "$tests/DittoConnectionDiagnosticsTest.java" \
         "$main/DittoMeshDiagnostics.java" "$tests/DittoMeshDiagnosticsTest.java" \
+        "$main/DittoCotAdapter.java" "$tests/DittoCotAdapterTest.java" \
         "$main/BondFailureTracker.java" "$tests/BondFailureTrackerTest.java" \
         "$main/PhoneFixValidator.java" "$main/PhonePosition.java" \
         "$main/PhonePositionActions.java" "$main/WatchMessageIds.java" \
@@ -60,6 +61,7 @@ field_report_regressions:
       java -cp '.regression-classes:.regression-libs/*' org.junit.runner.JUnitCore \
         com.weartak.atak.weartak_companion.plugin.DittoConnectionDiagnosticsTest \
         com.weartak.atak.weartak_companion.plugin.DittoMeshDiagnosticsTest \
+        com.weartak.atak.weartak_companion.plugin.DittoCotAdapterTest \
         com.weartak.atak.weartak_companion.plugin.BondFailureTrackerTest \
         com.weartak.atak.weartak_companion.plugin.AtakUnitPreferencesTest \
         com.weartak.atak.weartak_companion.plugin.SettingsPayloadBuilderTest \

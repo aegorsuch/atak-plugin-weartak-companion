@@ -14,13 +14,11 @@ import java.util.Locale;
 
 public class DittoCotAdapterTest {
     private static final String WATCH_POINT_XML =
-            "<event version='2.0' uid='watch-uid' type='a-n-G' "
+            "<event version='2.0' uid='point-uid' type='a-n-G' "
                     + "time='2023-11-14T22:13:20Z' start='2023-11-14T22:13:20Z' "
-                    + "stale='2023-11-14T22:14:20Z' how='m-g' access='Undefined'>"
+                    + "stale='2023-11-14T22:14:20Z' how='h-g-i-g-o' access='Undefined'>"
                     + "<point lat='38.5' lon='-77.2' hae='10.0' ce='1.0' le='2.0'/>"
                     + "<detail><contact callsign='WATCH'/></detail></event>";
-    private static final String WATCH_POINT_REVISION =
-            "738fd5a5430c531497dc25535eae4e72e5a4fded073e7f2543ed570f0de974b8";
 
     @Test
     public void decodesWearTakTrackSchemaToCot() throws Exception {
@@ -37,33 +35,60 @@ public class DittoCotAdapterTest {
     }
 
     @Test
-    public void rejectsWrongCollectionAndMismatchedDocumentIdentity() throws Exception {
+    public void decodesMarkerIdentitySeparatelyFromProducerIdentity() throws Exception {
+        JSONObject raw = new JSONObject(live("a-n-G"))
+                .put("_id", "point-uid").put("p", "h-g-i-g-o");
+
+        DittoCotAdapter.Document document = DittoCotAdapter.decode("mapitem", raw.toString());
+
+        assertEquals("point-uid", document.uid);
+        assertEquals("watch-peer", document.peer);
+        assertTrue(document.xml.contains("uid='point-uid'"));
+    }
+
+    @Test
+    public void decodesAlertIdentitySeparatelyFromProducerIdentity() throws Exception {
+        JSONObject raw = new JSONObject(live("b-a-o")).put("_id", "alert-uid");
+
+        DittoCotAdapter.Document document = DittoCotAdapter.decode("alert", raw.toString());
+
+        assertEquals("alert-uid", document.uid);
+        assertTrue(document.xml.contains("uid='alert-uid'"));
+    }
+
+    @Test
+    public void rejectsWrongCollectionAndMissingIdentityFields() throws Exception {
         expectInvalid("track", live("a-n-G"));
 
         JSONObject raw = new JSONObject(live("a-f-G-U-C"));
-        raw.put("_id", "different-uid");
+        raw.remove("_id");
+        expectInvalid("track", raw.toString());
+
+        raw = new JSONObject(live("a-f-G-U-C"));
+        raw.remove("d");
         expectInvalid("track", raw.toString());
     }
 
     @Test
     public void acceptsWatchProducedWearTakPointTombstone() throws Exception {
-        JSONObject raw = new JSONObject(live("a-n-G"));
+        JSONObject raw = new JSONObject(live("a-n-G"))
+                .put("_id", "point-uid").put("p", "h-g-i-g-o");
+        String revision = sha256(WATCH_POINT_XML);
         DittoCotAdapter.Document liveDocument = DittoCotAdapter.decode("mapitem", raw.toString());
         assertEquals(WATCH_POINT_XML, liveDocument.xml);
-        assertEquals(WATCH_POINT_REVISION, sha256(liveDocument.xml));
 
         raw.put("_r", true).put("visible", false).put("f", false);
         raw.put("weartakPoint", new JSONObject()
                 .put("version", 1)
                 .put("owner", "watch-uid")
-                .put("revision", WATCH_POINT_REVISION)
+                .put("revision", revision)
                 .put("deleted", true)
                 .put("deletedAt", 1_700_000_000_001L));
 
         DittoCotAdapter.Document deleted = DittoCotAdapter.decode("mapitem", raw.toString());
         assertNotNull(deleted);
         assertTrue(deleted.deleted);
-        assertEquals("watch-uid", deleted.uid);
+        assertEquals("point-uid", deleted.uid);
 
         raw.getJSONObject("weartakPoint").put("owner", "other-owner");
         expectInvalid("mapitem", raw.toString());
