@@ -149,6 +149,7 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
     private boolean dittoSyncStarting;
     private volatile boolean dittoPluginStarted;
     private volatile boolean dittoEshConnected;
+    private DittoMeshDiagnostics dittoMeshDiagnostics = new DittoMeshDiagnostics();
     private final AtomicLong dittoUiGeneration = new AtomicLong();
     private final LinkedHashMap<String, String> dittoDocumentFingerprints = new LinkedHashMap<>();
     private static final int DITTO_PERMISSION_REQUEST_CODE = 5310;
@@ -1807,13 +1808,15 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
 
         dittoSyncStarting = true;
         dittoEshConnected = false;
+        final DittoMeshDiagnostics meshDiagnostics = new DittoMeshDiagnostics();
+        dittoMeshDiagnostics = meshDiagnostics;
         updateDittoConnectionStatus("Starting Ditto sync...");
         final String databaseId = dittoDatabaseIdValue;
         final String serverUrl = dittoServerUrlValue;
         final boolean community = dittoCommunityMode;
         final MapView mapView = MapView.getMapView();
         final Context context = mapView == null ? pluginContext : mapView.getContext();
-        final long uiGeneration = dittoUiGeneration.get();
+        final long uiGeneration = dittoUiGeneration.incrementAndGet();
         final AtomicReference<String> connectionStage =
                 new AtomicReference<>("request-validation");
         dittoAuthTokenET.setText("");
@@ -1830,7 +1833,18 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
 
                     @Override public void onCollectionSnapshot(
                             String collection, List<String> documents) {
-                        processDittoSnapshot(collection, documents, uiGeneration);
+                        processDittoSnapshot(collection, documents, uiGeneration, meshDiagnostics);
+                    }
+
+                    @Override public void onPeerCount(int count) {
+                        runOnMain(() -> {
+                            if (!isCurrentDittoUi(uiGeneration)) return;
+                            if (meshDiagnostics.updatePeers(count)) {
+                                android.util.Log.i("WTK/Ditto", meshDiagnostics.logMessage());
+                                if (!dittoSyncStarting)
+                                    updateDittoConnectionStatus(dittoStatusText());
+                            }
+                        });
                     }
 
                     @Override public void onEshConnectionStatus(boolean connected) {
@@ -1843,7 +1857,14 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
 
                     @Override public void onObserverError(String category) {
                         LogX.w(TAG, "Ditto observer issue; category=" + category);
-                        if ("sync-status".equals(category)) {
+                        if ("presence".equals(category)) {
+                            runOnMain(() -> {
+                                if (!isCurrentDittoUi(uiGeneration)) return;
+                                meshDiagnostics.presenceUnavailable();
+                                if (!dittoSyncStarting)
+                                    updateDittoConnectionStatus(dittoStatusText());
+                            });
+                        } else if ("sync-status".equals(category)) {
                             runOnMain(() -> {
                                 if (!isCurrentDittoUi(uiGeneration)) return;
                                 dittoEshConnected = false;
@@ -1870,7 +1891,9 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
                         DittoConnectionDiagnostics.logMessage(connectionStage.get(), e));
                 runOnMain(() -> {
                     if (!isCurrentDittoUi(uiGeneration)) return;
+                    dittoUiGeneration.incrementAndGet();
                     dittoSyncStarting = false;
+                    dittoEshConnected = false;
                     updateDittoConnectionStatus(community || "sdk-linkage".equals(category)
                             ? DittoConnectionDiagnostics.failureMessage(
                                     community, connectionStage.get(), e)
@@ -1884,7 +1907,7 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
     }
 
     private String dittoStatusText() {
-        if (dittoCommunityMode) return "Community sync active; peer connectivity not confirmed.";
+        if (dittoCommunityMode) return dittoMeshDiagnostics.communityStatusText();
         return dittoEshConnected
                 ? "Connected to Ditto ESH."
                 : "Sync active; ESH connectivity not confirmed.";
@@ -1903,8 +1926,10 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
         return "Ditto SDK operation failed; see credential-safe diagnostic category.";
     }
 
-    private void processDittoSnapshot(String collection, List<String> documents, long uiGeneration) {
+    private void processDittoSnapshot(String collection, List<String> documents, long uiGeneration,
+                                     DittoMeshDiagnostics meshDiagnostics) {
         if (!isCurrentDittoUi(uiGeneration)) return;
+        int forwarded = 0;
         for (String json : documents) {
             if (!isCurrentDittoUi(uiGeneration)) return;
             try {
@@ -1927,6 +1952,7 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
                     if (bridge == null) continue;
                     bridge.forwardDittoCot(document.xml);
                 }
+                forwarded++;
 
                 synchronized (dittoDocumentFingerprints) {
                     dittoDocumentFingerprints.put(key, fingerprint);
@@ -1939,6 +1965,13 @@ public class WearTakPlugin implements IPlugin, IToolbarItem {
                 LogX.w(TAG, "Rejected Ditto " + collection + " document; type="
                         + e.getClass().getSimpleName());
             }
+        }
+        if (meshDiagnostics.recordSnapshot(collection, forwarded)) {
+            runOnMain(() -> {
+                if (!isCurrentDittoUi(uiGeneration)) return;
+                android.util.Log.i("WTK/Ditto", meshDiagnostics.logMessage());
+                if (!dittoSyncStarting) updateDittoConnectionStatus(dittoStatusText());
+            });
         }
     }
 

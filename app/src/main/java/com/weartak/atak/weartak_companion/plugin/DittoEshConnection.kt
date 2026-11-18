@@ -7,6 +7,11 @@ import com.ditto.kotlin.DittoAuthenticationProvider
 import com.ditto.kotlin.DittoConfig
 import com.ditto.kotlin.DittoFactory
 import com.ditto.kotlin.DittoInitializer
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import java.io.File
@@ -18,6 +23,7 @@ interface DittoEshListener {
     fun onConnectionStage(stage: String)
     fun onCollectionSnapshot(collection: String, documents: List<String>)
     fun onEshConnectionStatus(connected: Boolean)
+    fun onPeerCount(count: Int)
     fun onObserverError(category: String)
 }
 
@@ -173,6 +179,31 @@ object DittoEshConnection {
                 listener.onObserverError("sync-status")
             }
 
+            if (community != null) {
+                reportStage(listener, "presence")
+                val presenceScope = CoroutineScope(Dispatchers.Default)
+                nextObservers += AutoCloseable { presenceScope.cancel() }
+                presenceScope.launch {
+                    try {
+                        ditto.presence.observe().collect { graph ->
+                            if (isOperationCurrent(operation.first, operation.second)) {
+                                listener.onPeerCount(graph.remotePeers.size)
+                            }
+                        }
+                        if (isOperationCurrent(operation.first, operation.second)) {
+                            android.util.Log.w(TAG, "Presence observer ended unexpectedly")
+                            listener.onObserverError("presence")
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        reportPresenceFailure(listener, operation, e)
+                    } catch (e: LinkageError) {
+                        reportPresenceFailure(listener, operation, e)
+                    }
+                }
+            }
+
             synchronized(lock) {
                 check(sessionEnabled && sessionGeneration == operation.first &&
                     operationGeneration == operation.second) {
@@ -214,6 +245,18 @@ object DittoEshConnection {
         nextObservers.forEach { handle -> cleanupAfterFailure(failure) { handle.close() } }
         nextSubscriptions.forEach { handle -> cleanupAfterFailure(failure) { handle.close() } }
         cleanupAfterFailure(failure) { runBlocking { ditto.close() } }
+    }
+
+    private fun reportPresenceFailure(
+        listener: DittoEshListener,
+        operation: Pair<Long, Long>,
+        failure: Throwable
+    ) {
+        if (!isOperationCurrent(operation.first, operation.second)) return
+        android.util.Log.w(TAG, "Presence observer failed; category=" +
+            DittoConnectionDiagnostics.category(failure) + ", type=" +
+            DittoConnectionDiagnostics.exceptionType(failure))
+        listener.onObserverError("presence")
     }
 
     private fun cleanupAfterFailure(failure: Throwable, close: () -> Unit) {

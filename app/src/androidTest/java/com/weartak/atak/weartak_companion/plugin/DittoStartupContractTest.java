@@ -7,10 +7,14 @@ import com.ditto.kotlin.Ditto;
 import com.ditto.kotlin.DittoConfig;
 import com.ditto.kotlin.DittoException;
 import com.ditto.kotlin.DittoFactory;
+import com.ditto.kotlin.DittoPresenceGraph;
 import com.ditto.kotlin.DittoStoreObserver;
 import com.ditto.kotlin.DittoSyncSubscription;
 import kotlin.Unit;
+import kotlin.coroutines.EmptyCoroutineContext;
+import kotlinx.coroutines.BuildersKt;
 import kotlinx.coroutines.CoroutineScopeKt;
+import kotlinx.coroutines.flow.FlowKt;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -21,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -74,6 +79,17 @@ public class DittoStartupContractTest {
                 new DittoConfig.Connect.Server("https://127.0.0.1"), serverDirectory)) {
             assertNotNull(server.getAuth());
         }
+    }
+
+    @Test(timeout = 15000)
+    public void observesInitialPresenceWithoutSyncAndClosesAfterCollectorCancellation() throws Exception {
+        DittoPresenceGraph graph = BuildersKt.runBlocking(EmptyCoroutineContext.INSTANCE,
+                (scope, continuation) -> FlowKt.first(ditto.getPresence().observe(), continuation));
+        assertNotNull(graph.getLocalPeer());
+        assertTrue(graph.getRemotePeers().isEmpty());
+        assertFalse(ditto.getSync().isActive());
+        ditto.close();
+        ditto = null;
     }
 
     private static Ditto create(DittoConfig.Connect connect, File directory) {

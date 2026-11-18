@@ -110,6 +110,11 @@ distribute the APK only to authorized users. Community sync uses the PDL's app
 ID, shared key and offline license token; it does not authenticate to ESH.
 Starting sync does not establish that a peer is connected.
 
+Community status shows visible-peer count and Ditto-only forwarding counters,
+separating initial cache from later forwards. Peer counts do not identify a
+specific watch; counters alone do not prove live transfer. Signed ATAK-host
+presence/exchange validation remains pending.
+
 Select ESH server to enter a Ditto database ID, ESH server URL, and development
 token, then starts Ditto sync in the plugin. Companion does not persist or log
 the token; it clears the input after use. Sync stops when the plugin stops.
