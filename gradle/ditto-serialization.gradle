@@ -1,4 +1,5 @@
 import groovy.io.FileType
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.Directory
 import org.gradle.api.file.RegularFile
@@ -36,6 +37,10 @@ abstract class IsolateDittoSerialization extends DefaultTask {
     @PathSensitive(PathSensitivity.RELATIVE)
     abstract ConfigurableFileCollection getWarningRules()
 
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ConfigurableFileCollection getConsumerArchives()
+
     @OutputFile
     abstract RegularFileProperty getOutputJar()
 
@@ -56,6 +61,20 @@ abstract class IsolateDittoSerialization extends DefaultTask {
             }
         }
         warningRules.files.each { file -> collectWarnings(file.getText('UTF-8')) }
+        def collectArchiveWarnings = { ZipFile archive ->
+            archive.entries().each { entry ->
+                if (!entry.directory && (entry.name == 'proguard.txt'
+                        || entry.name.startsWith('META-INF/proguard/')
+                        || entry.name.startsWith('META-INF/com.android.tools/proguard/'))) {
+                    archive.getInputStream(entry).withCloseable { content ->
+                        collectWarnings(content.getText('UTF-8'))
+                    }
+                }
+            }
+        }
+        consumerArchives.files.each { file ->
+            new ZipFile(file).withCloseable { archive -> collectArchiveWarnings(archive) }
+        }
         def merged = new File(temporaryDir, 'classes.jar')
         new ZipOutputStream(new FileOutputStream(merged)).withCloseable { target ->
             def addClass = { String name, InputStream content ->
@@ -74,16 +93,11 @@ abstract class IsolateDittoSerialization extends DefaultTask {
             }
             inputJars.get().each { input ->
                 new ZipFile(input.asFile).withCloseable { archive ->
+                    collectArchiveWarnings(archive)
                     archive.entries().each { entry ->
                         if (!entry.directory && entry.name.endsWith('.class')) {
                             archive.getInputStream(entry).withCloseable { content ->
                                 addClass(entry.name, content)
-                            }
-                        } else if (!entry.directory
-                                && (entry.name.startsWith('META-INF/proguard/')
-                                || entry.name.startsWith('META-INF/com.android.tools/proguard/'))) {
-                            archive.getInputStream(entry).withCloseable { content ->
-                                collectWarnings(content.getText('UTF-8'))
                             }
                         }
                     }
@@ -138,6 +152,11 @@ ext.configureDittoSerializationIsolation = { variant, scope, classes ->
         libraries.from(androidComponents.sdkComponents.bootClasspath, variant.compileClasspath)
         warningRules.from(project.android.buildTypes.release.proguardFiles,
                 project.android.buildTypes.getByName(variant.buildType).proguardFiles)
+        // AAR consumer policy is separate from the scoped class jars.
+        consumerArchives.from(variant.runtimeConfiguration.incoming.artifactView {
+            attributes.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'aar')
+            lenient = true
+        }.files)
         compilerClasspath.from(providers.provider {
             project.buildscript.configurations.classpath.files.findAll { file ->
                 if (!file.name.endsWith('.jar')) return false
