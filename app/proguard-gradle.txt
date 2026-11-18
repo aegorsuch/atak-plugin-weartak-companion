@@ -105,3 +105,6 @@
 
 # Ditto's C interop resolves companion objects through Kotlin reflection.
 -keep class com.ditto.** { *; }
+
+# The private runtime must not resolve against ATAK's older serialization interfaces.
+-keep class com.weartak.atak.weartak_companion.internal.serialization.** { *; }

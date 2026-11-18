@@ -397,3 +397,5 @@ configurations.implementation {
        exclude group: 'androidx.lifecycle', module: 'lifecycle'
        exclude group: 'androidx.lifecycle', module: 'lifecycle-process'
 }       
+
+apply from: rootProject.file('gradle/ditto-serialization.gradle')

@@ -187,10 +187,48 @@ object DittoEshConnection {
             }
             reportStage(listener, "sync-started")
         } catch (e: Exception) {
-            closeHandles(nextObservers)
-            closeHandles(nextSubscriptions)
-            runBlocking { ditto.close() }
+            closeFailedConnection(ditto, nextObservers, nextSubscriptions, operation.second, e)
             throw e
+        } catch (e: LinkageError) {
+            closeFailedConnection(ditto, nextObservers, nextSubscriptions, operation.second, e)
+            throw e
+        }
+    }
+
+    private fun closeFailedConnection(
+        ditto: Ditto,
+        nextObservers: List<AutoCloseable>,
+        nextSubscriptions: List<AutoCloseable>,
+        failedOperation: Long,
+        failure: Throwable
+    ) {
+        synchronized(lock) {
+            if (operationGeneration == failedOperation) ++operationGeneration
+            if (instance === ditto) {
+                instance = null
+                instanceGeneration = 0L
+                observers = mutableListOf()
+                subscriptions = mutableListOf()
+            }
+        }
+        nextObservers.forEach { handle -> cleanupAfterFailure(failure) { handle.close() } }
+        nextSubscriptions.forEach { handle -> cleanupAfterFailure(failure) { handle.close() } }
+        cleanupAfterFailure(failure) { runBlocking { ditto.close() } }
+    }
+
+    private fun cleanupAfterFailure(failure: Throwable, close: () -> Unit) {
+        val cleanupFailure = try {
+            close()
+            null
+        } catch (e: Exception) {
+            e
+        } catch (e: LinkageError) {
+            e
+        }
+        if (cleanupFailure != null && cleanupFailure !== failure) {
+            failure.addSuppressed(cleanupFailure)
+            android.util.Log.e(TAG,
+                "Ditto resource cleanup failed (${cleanupFailure.javaClass.simpleName})")
         }
     }
 
