@@ -1,5 +1,3 @@
-import com.android.build.api.artifact.ScopedArtifact
-import com.android.build.api.variant.ScopedArtifacts
 import groovy.io.FileType
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.Directory
@@ -18,12 +16,6 @@ import javax.inject.Inject
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
-
-buildscript {
-    dependencies {
-        classpath files(project.buildscript.configurations.classpath)
-    }
-}
 
 abstract class IsolateDittoSerialization extends DefaultTask {
     @InputFiles
@@ -140,7 +132,7 @@ abstract class IsolateDittoSerialization extends DefaultTask {
 }
 
 // Relocate before TAK's host mapping can pin an incompatible serialization ABI.
-androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+ext.configureDittoSerializationIsolation = { variant, scope, classes ->
     def isolation = tasks.register("isolate${variant.name.capitalize()}DittoSerialization",
             IsolateDittoSerialization) {
         libraries.from(androidComponents.sdkComponents.bootClasspath, variant.compileClasspath)
@@ -155,7 +147,7 @@ androidComponents.onVariants(androidComponents.selector().all()) { variant ->
             }
         })
     }
-    variant.artifacts.forScope(ScopedArtifacts.Scope.ALL).use(isolation).toTransform(
-            ScopedArtifact.CLASSES.INSTANCE,
+    variant.artifacts.forScope(scope).use(isolation).toTransform(
+            classes,
             { it.inputJars }, { it.inputDirectories }, { it.outputJar })
 }

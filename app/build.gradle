@@ -399,3 +399,10 @@ configurations.implementation {
 }       
 
 apply from: rootProject.file('gradle/ditto-serialization.gradle')
+
+// Resolve AGP API values in the plugin's buildscript classloader.
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+    configureDittoSerializationIsolation(variant,
+            com.android.build.api.variant.ScopedArtifacts.Scope.ALL,
+            com.android.build.api.artifact.ScopedArtifact.CLASSES.INSTANCE)
+}
